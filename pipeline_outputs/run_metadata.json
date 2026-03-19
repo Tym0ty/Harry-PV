@@ -1,0 +1,43 @@
+{
+  "run_id": "055eeeba0074",
+  "created_at": "2026-03-19T19:37:18.281796",
+  "timezone": "Asia/Taipei",
+  "random_seed": 42,
+  "N_scenarios": 500,
+  "K_reduced": 5,
+  "quantiles": [
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65,
+    0.7,
+    0.75,
+    0.8,
+    0.85,
+    0.9,
+    0.95
+  ],
+  "site_metadata": {
+    "lat": 25.0377,
+    "lon": 121.5149,
+    "elevation": 10.0,
+    "name": "NTUST"
+  },
+  "pv_params": {
+    "pv_dc_rated_kw": 50.0,
+    "gamma_pdc": -0.0047,
+    "inv_eff": 0.96,
+    "dc_ac_ratio": 1.2,
+    "inoct": 49.0
+  },
+  "config_hash": "5c00d3dfcb25c4e30c162d51d0bf0ea3"
+}

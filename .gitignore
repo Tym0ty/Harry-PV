@@ -1,0 +1,43 @@
+# Data files (too large for git)
+Project_Archive_Prediction_Final/data/
+data/
+
+# Pipeline outputs (regenerable)
+pipeline_outputs/*.parquet
+pipeline_outputs/*.csv
+
+# CatBoost training artifacts
+catboost_info/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+*.env
+venv/
+.venv/
+
+# Large binary files
+*.xlsx
+*.docx
+*.pdf
+*.grib2
+*.nc

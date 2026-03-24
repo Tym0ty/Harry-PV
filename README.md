@@ -61,6 +61,23 @@ The forecast model (S0–S4b) is identical between original and fixed notebooks.
 
 Harry's lower MAE is explained by his model using contemporaneous CWA weather observations as features — data leakage that would not be available at forecast time in a real day-ahead setting.
 
+## NWP Contribution Analysis
+
+Ablation experiment comparing forecast performance with and without the 14 GFS-derived NWP features. See `notebooks_experiments/nwp_contribution.ipynb`.
+
+| Setting | MAE All (W/m²) | MAE Daytime (W/m²) | R² All | R² Daytime | CRPS |
+|---------|----------------|---------------------|--------|------------|------|
+| V1 With NWP | 42.56 | 84.04 | 0.8759 | 0.8046 | 31.64 |
+| V1 Without NWP | 66.86 | 132.31 | 0.7305 | 0.5759 | 47.73 |
+| V2 With NWP (5-seed) | 42.10 | 83.16 | 0.8773 | 0.8067 | 31.24 |
+| V2 Without NWP (5-seed) | 65.98 | 130.57 | 0.7322 | 0.5785 | 47.07 |
+
+**NWP Impact (V1)**: MAE reduced by 48.27 W/m² (36.5%), R² improved by +0.2287, CRPS reduced by 33.7%
+
+**NWP Impact (V2)**: MAE reduced by 47.40 W/m² (36.3%), R² improved by +0.2282, CRPS reduced by 33.6%
+
+NWP is critical — without GFS forecast data, the model cannot predict next-day cloud cover, which is the dominant source of GHI variability in Taipei's subtropical climate.
+
 ## Bridge Layer Results
 
 Per Bridge Layer Engineering Spec v3 (2024-03-24). Case year: 2024-11-01 to 2025-10-31.
@@ -97,6 +114,8 @@ Harry-PV/
 │   └── v2_fixed_tuned_xgb_5seed.ipynb #   Tuned XGBoost + 5-seed ensemble
 ├── notebooks_bridge/                  # Bridge layer notebook
 │   └── bridge_v1.ipynb                #   Bridge v1 (per Spec v3)
+├── notebooks_experiments/              # Experiment notebooks
+│   └── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
 ├── notebooks/                         # Original iteration notebooks (archived)
 │   ├── v1_baseline.ipynb
 │   ├── v2_tuned_xgb_5seed.ipynb

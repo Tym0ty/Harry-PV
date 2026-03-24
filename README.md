@@ -1,12 +1,17 @@
-# Harry-PV: Day-Ahead Solar Irradiance Probabilistic Forecasting
+# Harry-PV: Day-Ahead Solar Irradiance Probabilistic Forecasting & Bridge Layer
 
-Day-ahead GHI (Global Horizontal Irradiance) probabilistic forecasting pipeline for the NTUST site in Taipei, Taiwan. Uses CQR-XGBQ (Conformal Quantile Regression with XGBoost Quantile) to produce 19 calibrated quantile forecasts (P05–P95), then converts to PV power and generates reduced scenarios for the downstream bridge layer and annual sizing MILP.
+Day-ahead GHI (Global Horizontal Irradiance) probabilistic forecasting pipeline for the NTUST site in Taipei, Taiwan. Uses CQR-XGBQ (Conformal Quantile Regression with XGBoost Quantile) to produce 19 calibrated quantile forecasts (P05–P95), converts to PV power, generates reduced scenarios, then transforms them via a bridge layer into representative-day tables for the annual sizing MILP.
 
 ## Pipeline Overview
 
 ```
-CWA Hourly Obs + GFS NWP → Feature Engineering → 19-Quantile Models → CQR Calibration
-→ GHI Scenario Generation → GHI→PV Conversion → k-Medoids Reduction → Bridge-Ready Package
+Forecast Layer:
+  CWA Hourly Obs + GFS NWP → Feature Engineering → 19-Quantile Models → CQR Calibration
+  → GHI Scenario Generation → GHI→PV Conversion → k-Medoids Reduction → Bridge-Ready Package
+
+Bridge Layer:
+  Daily PV Packages → Day Descriptors → Risk-Day Tagging → Body-Day Clustering
+  → Medoid Selection → Calendar Map + Weights → Repday Scenario Tables → Annual MILP Ingest
 ```
 
 - **Gate-compliant**: All NWP data respects D-1 12:00 UTC deadline (no future data leakage)
@@ -15,7 +20,7 @@ CWA Hourly Obs + GFS NWP → Feature Engineering → 19-Quantile Models → CQR 
 - **GHI-only stochastic**: Load is deterministic; only GHI/PV drives scenario uncertainty
 - **PV-only reduction**: k-medoids clusters on PV trajectories (24-dim), not PV+Load
 
-## Iteration Results
+## Forecast Results
 
 ### Original Notebooks (Test Set — Last 365 Days, Daytime)
 
@@ -56,6 +61,33 @@ The forecast model (S0–S4b) is identical between original and fixed notebooks.
 
 Harry's lower MAE is explained by his model using contemporaneous CWA weather observations as features — data leakage that would not be available at forecast time in a real day-ahead setting.
 
+## Bridge Layer Results
+
+Per Bridge Layer Engineering Spec v3 (2024-03-24). Case year: 2024-11-01 to 2025-10-31.
+
+| Metric | Value |
+|--------|-------|
+| Calendar days | 365 |
+| Total repdays | 95 (20 body + 75 risk) |
+| Body clusters | 20 (stratified by month, k-medoids on day descriptors) |
+| Risk days | 75 (top 10% by stress/peak-load/low-PV, union + monthly supplement) |
+| Scenarios per repday | 5 (per-repday, inherited from source date) |
+| Calendar map coverage | 100% |
+| Weight sum | 365 (= n_days) |
+| Pi sum per repday | 1.0000 |
+| All months have risk days | Yes (12/12) |
+
+### Bridge Output Artifacts (in `bridge_outputs/`)
+
+| File | Spec Ref | Purpose |
+|------|----------|---------|
+| `repdays_metadata.parquet` | §7.1 | Master index of representative days and risk days |
+| `calendar_map.parquet` | §7.2 | Maps each calendar day to a repday (for SOC linkage + monthly max-demand) |
+| `scenarios_repdays_pv_reduced.parquet` | §7.3 | Repday-level PV scenarios for annual sizing MILP |
+| `risk_day_tags.parquet` | §2 | Risk tags and scores for all dates |
+| `bridge_report.json` | §8 | Bridge parameters, thresholds, and QA diagnostics |
+| `bridge_run_metadata.json` | §8 | Reproducibility (config hash, seed, version) |
+
 ## Project Structure
 
 ```
@@ -63,6 +95,8 @@ Harry-PV/
 ├── notebooks_forecast_fixed/          # Spec-compliant forecast notebooks
 │   ├── v1_fixed_baseline.ipynb        #   Baseline XGBoost (single model)
 │   └── v2_fixed_tuned_xgb_5seed.ipynb #   Tuned XGBoost + 5-seed ensemble
+├── notebooks_bridge/                  # Bridge layer notebook
+│   └── bridge_v1.ipynb                #   Bridge v1 (per Spec v3)
 ├── notebooks/                         # Original iteration notebooks (archived)
 │   ├── v1_baseline.ipynb
 │   ├── v2_tuned_xgb_5seed.ipynb
@@ -70,12 +104,13 @@ Harry-PV/
 │   ├── v4_lightgbm.ipynb
 │   ├── v5_catboost.ipynb
 │   └── v6_3model_ensemble.ipynb
-├── pipeline_outputs/                  # Generated artifacts (gitignored)
+├── pipeline_outputs/                  # Forecast pipeline artifacts (gitignored)
+├── bridge_outputs/                    # Bridge layer artifacts (gitignored)
 ├── Project_Archive_Prediction_Final/  # Harry's original code & data (reference)
 └── README.md
 ```
 
-## Output Artifacts
+## Forecast Output Artifacts (in `pipeline_outputs/`)
 
 | File | Purpose |
 |------|---------|

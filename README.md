@@ -119,6 +119,52 @@ Per Bridge Layer Engineering Spec v3 (2024-03-24). Case year: 2024-11-01 to 2025
 | `bridge_report.json` | §8 | Bridge parameters, thresholds, and QA diagnostics |
 | `bridge_run_metadata.json` | §8 | Reproducibility (config hash, seed, version) |
 
+## Thesis Figures
+
+Publication-quality visualizations generated from `notebooks_experiments/thesis_figures.ipynb`. Both V1 (baseline XGBoost) and V2 (tuned + 5-seed ensemble) results are shown where applicable.
+
+### Fig 1 — Quantile Fan Chart (3 Representative Days)
+
+![Quantile Fan Chart](docs/figures/fig1_quantile_fan_chart.png)
+
+Shows the 19-quantile probabilistic forecast (P05–P95) as nested prediction bands for three representative days: a clear-sky day, a mixed/partly-cloudy day, and an overcast day. The median forecast (P50) is drawn as a solid line, with progressively lighter shading toward the tails. This demonstrates that the model produces well-calibrated uncertainty — narrow bands on clear days (high confidence) and wide bands on cloudy days (appropriate uncertainty).
+
+### Fig 2 — Reliability Diagram (CQR Calibration Proof)
+
+![Reliability Diagram](docs/figures/fig2_reliability_diagram.png)
+
+Plots nominal quantile level (x-axis) vs observed empirical coverage (y-axis) for both raw XGBQ output and post-CQR calibrated output. A perfectly calibrated model falls on the diagonal. The raw model shows systematic under-coverage at the tails; after split-conformal CQR calibration, all 19 quantiles align closely with the diagonal — proving that our prediction intervals have valid finite-sample coverage guarantees.
+
+### Fig 3 — NWP Ablation (Impact of Weather Forecasts)
+
+![NWP Ablation](docs/figures/fig3_nwp_ablation.png)
+
+Grouped bar chart comparing forecast performance with and without the 14 GFS-derived NWP features, across both V1 and V2 model versions. Metrics shown: MAE (daytime), R² (daytime), and CRPS. Removing NWP degrades MAE by ~36% and R² by ~0.23 — confirming that numerical weather prediction data is the single most important input for day-ahead solar forecasting in Taipei's cloud-dominated climate.
+
+### Fig 4 — Per-Season Comparison with Pieter's RNN-LSTM
+
+![Pieter Comparison](docs/figures/fig4_pieter_comparison.png)
+
+Side-by-side per-season MAE comparison between our CQR-XGBQ pipeline and Pieter Hernando's dual-layer RNN-LSTM (2023 thesis). Uses Pieter's exact methodology: per-season evaluation, all hours including nighttime. Our model achieves 48–68% lower MAE across all four seasons, with the largest gains in Fall and Winter where NWP cloud-cover forecasts provide the most value.
+
+### Fig 5 — Feature Importance (Top 20)
+
+![Feature Importance](docs/figures/fig5_feature_importance.png)
+
+Top 20 features ranked by XGBoost gain, with NWP-derived features highlighted in blue and non-NWP features in gray. NWP features (especially `dswrf` — downward shortwave radiation flux, and cloud cover variables) dominate the top ranks, visually confirming the ablation study results. The lagged CWA observation features (`ghi_lag24`, `temp_lag24`) also contribute meaningfully as persistence baselines.
+
+### Fig 6 — Error Heatmap (Hour × Month)
+
+![Error Heatmap](docs/figures/fig6_error_heatmap.png)
+
+MAE heatmap with hour-of-day on the y-axis and month on the x-axis (daylight hours only). Reveals the spatiotemporal error structure: highest errors occur during midday hours in summer months (Jun–Aug) when convective cloud development is most unpredictable. Winter and shoulder-season mornings/evenings show the lowest errors. This pattern is consistent with Taipei's subtropical monsoon climate.
+
+### Fig 7 — Scatter: Predicted vs Actual GHI
+
+![Scatter Predicted vs Actual](docs/figures/fig7_scatter_pred_vs_actual.png)
+
+Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full test set. The diagonal line represents perfect prediction. Point density is shown via color intensity. The R² value is annotated directly on the plot. The model tracks well across the full GHI range, with the expected increase in scatter at high irradiance values where cloud transients create the most variability.
+
 ## Project Structure
 
 ```
@@ -130,7 +176,8 @@ Harry-PV/
 │   └── bridge_v1.ipynb                #   Bridge v1 (per Spec v3)
 ├── notebooks_experiments/              # Experiment notebooks
 │   ├── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
-│   └── pieter_comparison.ipynb        #   Per-season comparison with Pieter's RNN-LSTM
+│   ├── pieter_comparison.ipynb        #   Per-season comparison with Pieter's RNN-LSTM
+│   └── thesis_figures.ipynb           #   Publication-quality thesis visualizations
 ├── notebooks/                         # Original iteration notebooks (archived)
 │   ├── v1_baseline.ipynb
 │   ├── v2_tuned_xgb_5seed.ipynb
@@ -140,6 +187,7 @@ Harry-PV/
 │   └── v6_3model_ensemble.ipynb
 ├── pipeline_outputs/                  # Forecast pipeline artifacts (gitignored)
 ├── bridge_outputs/                    # Bridge layer artifacts (gitignored)
+├── docs/figures/                      # Thesis figures (PNG, tracked in git)
 ├── Project_Archive_Prediction_Final/  # Harry's original code & data (reference)
 └── README.md
 ```

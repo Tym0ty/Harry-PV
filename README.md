@@ -78,6 +78,20 @@ Ablation experiment comparing forecast performance with and without the 14 GFS-d
 
 NWP is critical — without GFS forecast data, the model cannot predict next-day cloud cover, which is the dominant source of GHI variability in Taipei's subtropical climate.
 
+## Comparison with Pieter's RNN-LSTM (Per-Season)
+
+Re-evaluation using Pieter Hernando's methodology (per-season, all hours including nighttime). See `notebooks_experiments/pieter_comparison.ipynb`.
+
+| Season | MAE Ours (W/m²) | MAE Pieter (W/m²) | Improvement | RMSE Ours | RMSE Pieter | Improvement |
+|--------|-----------------|-------------------|-------------|-----------|-------------|-------------|
+| Summer | 54.71 | 105.13 | -48.0% | 108.00 | 154.65 | -30.2% |
+| Fall | 30.68 | 93.57 | -67.2% | 69.59 | 136.06 | -48.9% |
+| Winter | 32.39 | 99.81 | -67.5% | 72.62 | 142.04 | -48.9% |
+| Spring | 47.56 | 118.77 | -60.0% | 95.07 | 158.13 | -39.9% |
+| **Avg** | **41.34** | **104.32** | **-60.4%** | **86.32** | **147.72** | **-41.6%** |
+
+Caveats: different test years (2024–25 vs 2019), our model uses NWP (GFS) which Pieter's LSTM did not, and Pieter trains per-season while we train one model on all data.
+
 ## Bridge Layer Results
 
 Per Bridge Layer Engineering Spec v3 (2024-03-24). Case year: 2024-11-01 to 2025-10-31.
@@ -115,7 +129,8 @@ Harry-PV/
 ├── notebooks_bridge/                  # Bridge layer notebook
 │   └── bridge_v1.ipynb                #   Bridge v1 (per Spec v3)
 ├── notebooks_experiments/              # Experiment notebooks
-│   └── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
+│   ├── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
+│   └── pieter_comparison.ipynb        #   Per-season comparison with Pieter's RNN-LSTM
 ├── notebooks/                         # Original iteration notebooks (archived)
 │   ├── v1_baseline.ipynb
 │   ├── v2_tuned_xgb_5seed.ipynb

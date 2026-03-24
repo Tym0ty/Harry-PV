@@ -3,11 +3,7 @@ Project_Archive_Prediction_Final/data/
 data/
 
 # Pipeline outputs (regenerable)
-pipeline_outputs/*.parquet
-pipeline_outputs/*.csv
-
-# CatBoost training artifacts
-catboost_info/
+pipeline_outputs/
 
 # Python
 __pycache__/
@@ -20,6 +16,7 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
+*_executed.ipynb
 
 # OS
 .DS_Store
@@ -41,3 +38,6 @@ venv/
 *.pdf
 *.grib2
 *.nc
+
+# CatBoost training artifacts
+catboost_info/

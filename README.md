@@ -201,6 +201,21 @@ Two-stage stochastic MILP for optimal campus microgrid sizing: PV, BESS, and Tai
 | Solve time (HiGHS) | 10.2s |
 | Solve time (Gurobi) | 1.1s |
 
+### Solver Comparison: Gurobi vs HiGHS
+
+Both solvers produce identical optimal solutions for this problem. The key differences:
+
+| | Gurobi | HiGHS |
+|---|---|---|
+| **License** | Commercial (free academic license via [gurobi.com](https://www.gurobi.com/academia/academic-program-and-licenses/)) | Open-source (MIT), no license needed |
+| **Python API** | Native `gurobipy` — rich API with callbacks, lazy constraints, solution pools | Via `PuLP` wrapper — simpler but less control |
+| **Algorithm used** | Barrier (interior-point) + crossover | Dual simplex |
+| **Solve time** | 1.1s | 10.2s |
+| **Iterations** | 9,105 | 60,468 |
+| **When it matters** | Large MILPs with binary/integer variables (unit commitment, on/off decisions) — advanced branch-and-cut with heuristics | Small-medium LPs and MILPs where license cost or availability is a constraint |
+
+For the current formulation (pure LP, ~80K continuous variables), HiGHS is perfectly adequate. Gurobi becomes significantly advantageous if the model grows to include integer variables (e.g., binary on/off for BESS, discrete PV panel counts, unit commitment constraints).
+
 ### MILP Configuration
 
 | Parameter | Value |

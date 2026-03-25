@@ -35,7 +35,7 @@ Bridge Layer:
 
 ### Spec-Compliant Fixed Notebooks (Test Set — Last 365 Days)
 
-Per Forecast Engineering Spec Final v2 (2024-03-24).
+Per Forecast Engineering Spec Final v2 (2024-03-24). Load data sourced from `NTUST_Load_PV.csv` (true gross load, not net load).
 
 | Version | Description | MAE All (W/m²) | MAE Daytime (W/m²) | R² All | R² Daytime | CRPS |
 |---------|-------------|----------------|---------------------|--------|------------|------|
@@ -212,6 +212,7 @@ Harry-PV/
 
 ## Data Sources
 
+- **NTUST Load & PV**: `NTUST_Load_PV.csv` — Hourly campus load (Load_kWh) and rooftop PV generation (Solar_kWh) with electricity price. This is the corrected dataset with true gross load separated from PV; the previous dataset (`NTUST_Load_merged_fixed_v2.xlsx`) only contained net load (load − PV) as metered by Taipower. Date range: 2024-11-01 to 2025-11-01.
 - **CWA Hourly**: Central Weather Administration hourly station observations (2021–2025)
 - **GFS NWP**: NOAA GFS 0.25° forecasts — t2m, dswrf, cloud cover (lcc/mcc/hcc/tcc), wind, precipitation, humidity
 

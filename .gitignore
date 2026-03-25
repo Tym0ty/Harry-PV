@@ -42,3 +42,10 @@ venv/
 
 # CatBoost training artifacts
 catboost_info/
+
+# Harry's archive (untracked legacy scripts, models, reports)
+Project_Archive_Prediction_Final/src/
+Project_Archive_Prediction_Final/reports/
+Project_Archive_Prediction_Final/models/xgbq_v4_multilead/
+Project_Archive_Prediction_Final/5_eval_strict_test_set copy*.py
+Project_Archive_Prediction_Final/7_eval_metrics_table copy.py

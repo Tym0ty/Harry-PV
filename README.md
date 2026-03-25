@@ -188,16 +188,32 @@ Two-stage stochastic MILP for optimal campus microgrid sizing (per BH_STO-MILP E
 
 ### 8-Case Experimental Matrix
 
+Cases are labeled **M{method}_I{info}_R{robustness}**:
+- **M0** = daily SOC reset (no inter-day), **M1** = inter-day SOC linkage (Method 1), **M2** = M1 + risk days
+- **I0** = deterministic PV (P50 single scenario), **I1** = probabilistic PV (5 scenarios/repday)
+- **R0** = no load uplift, **R1** = all-day load uplift, **R2** = peak-hour-only uplift
+
+#### Deterministic PV (I0) — P50 single scenario
+
 | Case | Total Cost (M TWD) | PV (kW) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% |
 |------|-------------------|---------|---------------|-------------|---------------|-----|
 | M0_I0_R0 (baseline) | 84.69 | 7,467 | 12,566 | 1,710 | 2,701 | 40.6 |
 | M1_I0_R0 (+inter-day) | 90.18 | 7,197 | 4,652 | 1,116 | 2,787 | 36.7 |
 | M2_I0_R0 (+risk days) | 94.10 | 7,719 | 7,283 | 1,447 | 2,938 | 40.2 |
+
+#### Probabilistic PV (I1) — 5 stochastic scenarios per repday
+
+| Case | Total Cost (M TWD) | PV (kW) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% |
+|------|-------------------|---------|---------------|-------------|---------------|-----|
 | **M2_I1_R0 (mainline)** | **94.92** | **7,466** | **7,624** | **1,363** | **3,016** | **39.4** |
 | M2_I1_R1_p3 (+3% all-day) | 97.77 | 7,692 | 7,866 | 1,405 | 3,105 | 38.8 |
 | M2_I1_R1_p5 (+5% all-day) | 99.67 | 7,842 | 8,018 | 1,432 | 3,165 | 39.4 |
 | M2_I1_R2_p3 (+3% peak) | 95.88 | 7,684 | 7,903 | 1,346 | 3,031 | 39.7 |
 | M2_I1_R2_p5 (+5% peak) | 96.53 | 7,817 | 8,002 | 1,326 | 3,049 | 40.3 |
+
+#### Deterministic vs Probabilistic (M2_I0_R0 vs M2_I1_R0)
+
+The deterministic case (I0) sees only the expected PV output and optimizes against it — yielding a lower cost (94.10M vs 94.92M). The probabilistic case (I1) sees 5 PV scenarios including low-output tails, so it hedges with higher contract capacity (+78 kW) and more BESS energy (+341 kWh) to protect against cloudy days. The +0.82M cost premium is the **value of stochastic hedging**.
 
 ### Bridge v1 vs v7 Comparison (Mainline M2_I1_R0)
 

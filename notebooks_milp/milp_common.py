@@ -122,8 +122,10 @@ def get_config():
         lifetime_pv    = 20,
         lifetime_bess  = 15,       # N_B
 
+        # PV (fixed — already installed, not a decision variable)
+        pv_fixed_kw    = 2_687,    # installed PV capacity (kW)
+
         # Capacity limits
-        pv_max_kw      = 15_000,
         bess_p_max_kw  = 5_000,
         bess_e_max_kwh = 20_000,
 

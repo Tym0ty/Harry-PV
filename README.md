@@ -94,32 +94,41 @@ Caveats: different test years (2024–25 vs 2019), our model uses NWP (GFS) whic
 
 ## Bridge Layer Results
 
-Per Bridge Layer Engineering Spec v3 (2024-03-24). Case year: 2024-11-01 to 2025-10-31.
+### Bridge v7 (Current — per Spec v7, 2025-03-25)
 
 | Metric | Value |
 |--------|-------|
 | Calendar days | 365 |
-| Total repdays | 95 (20 body + 75 risk) |
-| Body clusters | 20 (stratified by month, k-medoids on day descriptors) |
-| Risk days | 75 (top 10% by stress/peak-load/low-PV, union + monthly supplement) |
+| Total repdays | 44 (16 body + 28 risk) |
+| Body clusters | 16 (global k-medoids with month×day_type weighted features) |
+| Risk scoring | Single Stress_i = PeakLoad − PV_P10_peakWindow (top 5%) |
 | Scenarios per repday | 5 (per-repday, inherited from source date) |
 | Calendar map coverage | 100% |
-| Weight sum | 365 (= n_days) |
-| Pi sum per repday | 1.0000 |
-| All months have risk days | Yes (12/12) |
+| Weight sum | 365 |
+
+### Bridge v1 (Legacy — per Spec v3, for comparison)
+
+| Metric | Value |
+|--------|-------|
+| Total repdays | 95 (20 body + 75 risk) |
+| Body clusters | 20 (stratified by month) |
+| Risk scoring | Union of 3 criteria (top 10% stress/peak-load/low-PV) |
 
 ### Bridge Output Artifacts (in `bridge_outputs/`)
 
-| File | Spec Ref | Purpose |
-|------|----------|---------|
-| `repdays_metadata.parquet` | §7.1 | Master index of representative days and risk days |
-| `calendar_map.parquet` | §7.2 | Maps each calendar day to a repday (for SOC linkage + monthly max-demand) |
-| `scenarios_repdays_pv_reduced.parquet` | §7.3 | Repday-level PV scenarios for annual sizing MILP |
-| `risk_day_tags.parquet` | §2 | Risk tags and scores for all dates |
-| `bridge_report.json` | §8 | Bridge parameters, thresholds, and QA diagnostics |
-| `bridge_run_metadata.json` | §8 | Reproducibility (config hash, seed, version) |
+| File | Purpose |
+|------|---------|
+| `repdays_metadata.parquet` | Master index of representative days and risk days |
+| `calendar_map.parquet` | Maps each calendar day to a repday (for SOC linkage) |
+| `scenarios_repdays_pv_reduced.parquet` | Repday-level PV scenarios for MILP |
+| `risk_day_tags.parquet` | Risk tags and scores for all dates |
+| `risk_day_scores.csv` | Risk day Stress_i scores (v7) |
+| `bridge_clustering_summary.csv` | Cluster assignment summary (v7) |
+| `bridge_coverage_by_month.csv` | Month-level coverage diagnostics (v7) |
+| `bridge_report.json` | Bridge parameters and QA diagnostics |
+| `bridge_run_metadata.json` | Reproducibility metadata |
 
-## Thesis Figures
+## Forecast Thesis Figures
 
 Publication-quality visualizations generated from `notebooks_experiments/thesis_figures.ipynb`. Both V1 (baseline XGBoost) and V2 (tuned + 5-seed ensemble) results are shown where applicable.
 
@@ -165,73 +174,69 @@ MAE heatmap with hour-of-day on the y-axis and month on the x-axis (daylight hou
 
 Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full test set. The diagonal line represents perfect prediction. Point density is shown via color intensity. The R² value is annotated directly on the plot. The model tracks well across the full GHI range, with the expected increase in scatter at high irradiance values where cloud transients create the most variability.
 
-## MILP Optimization Results
+## STO-MILP v10 — Optimization Results
 
-Two-stage stochastic MILP for optimal campus microgrid sizing: PV, BESS, and Taipower contract demand. Stage 1 (here-and-now) sizes the equipment; Stage 2 (recourse) dispatches hourly across 95 representative days × 5 PV scenarios. Three notebook versions provided — all produce identical optimal capacities and costs.
+Two-stage stochastic MILP for optimal campus microgrid sizing (per STO-MILP Engineering Spec v10). Gurobi solver with inter-day SOC linkage (Method 1), Green SOC tracking for RE accounting, segmented demand billing with κ proxy, and T-REC top-up.
 
-### Optimal Capacities
+### 8-Case Experimental Matrix
 
-| Asset | Optimal Size |
-|-------|-------------|
-| PV Capacity | 13,966 kW |
-| BESS Power | 1,551 kW |
-| BESS Energy | 7,151 kWh (E/P = 4.6h) |
-| Contract Demand | 3,081 kW |
+| Case | Total Cost (M TWD) | PV (kW) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% |
+|------|-------------------|---------|---------------|-------------|---------------|-----|
+| M0_I0_R0 (baseline) | 75.88 | 6,955 | 11,016 | 1,585 | 2,348 | 40.7 |
+| M1_I0_R0 (+inter-day) | 79.25 | 6,541 | 4,223 | 971 | 2,670 | 34.0 |
+| M2_I0_R0 (+risk days) | 82.92 | 7,241 | 7,803 | 1,501 | 2,889 | 39.1 |
+| **M2_I1_R0 (mainline)** | **83.52** | **6,711** | **7,899** | **1,350** | **3,027** | **36.2** |
+| M2_I1_R1_p3 (+3% all-day) | 86.03 | 6,890 | 8,049 | 1,381 | 3,126 | 36.9 |
+| M2_I1_R1_p5 (+5% all-day) | 87.70 | 7,047 | 8,294 | 1,418 | 3,178 | 37.3 |
+| M2_I1_R2_p3 (+3% peak) | 84.41 | 6,902 | 7,932 | 1,308 | 3,065 | 36.9 |
+| M2_I1_R2_p5 (+5% peak) | 85.00 | 7,055 | 8,126 | 1,298 | 3,074 | 38.6 |
 
-### Annual Cost Breakdown
+### Bridge v1 vs v7 Comparison (Mainline M2_I1_R0)
 
-| Component | Cost (TWD) |
-|-----------|-----------|
-| PV annuity | 37,550,128 |
-| BESS power annuity | 1,454,583 |
-| BESS energy annuity | 8,383,675 |
-| BESS O&M | 715,144 |
-| Contract demand | 8,266,976 |
-| **Investment subtotal** | **56,370,507** |
-| Operating cost | 21,221,889 |
-| **Total annual cost** | **77,592,395 (77.59 M)** |
+| Bridge | Total Cost (M TWD) | PV (kW) | BESS E (kWh) | Contract (kW) | RE% | Solve Time |
+|--------|-------------------|---------|---------------|---------------|-----|-----------|
+| v1 (95 repdays) | 83.23 | 7,168 | 8,071 | 2,991 | 39.0 | 33.7s |
+| v7 (44 repdays) | 83.52 | 6,711 | 7,899 | 3,027 | 36.2 | 25.5s |
 
-### Key Metrics
+Cost difference: +0.3% (v7 vs v1). Bridge v7 solves 1.3x faster with 54% fewer repdays while producing near-identical optimal sizing.
 
-| Metric | Value |
-|--------|-------|
-| RE share | 51.0% (target: 30%) |
-| Baseline annual cost (no BESS) | 95.34 M TWD |
-| Annual savings | 17.75 M TWD (18.6%) |
-| Solve time (HiGHS) | 10.2s |
-| Solve time (Gurobi) | 1.1s |
+### MILP v10 Figures
 
-### Solver & Version Comparison
+Visualizations generated from `notebooks_milp/milp_figures.ipynb`:
 
-| | v1 HiGHS | v1 Gurobi | v2 Gurobi (Optimized) |
-|---|---|---|---|
-| **Solver** | PuLP + HiGHS | gurobipy | gurobipy |
-| **License** | Open-source (MIT) | Academic (free for students) | Academic (free for students) |
-| **BESS exclusivity** | No (LP relaxation) | No (LP relaxation) | Yes — binary variables prevent simultaneous charge/discharge |
-| **Problem type** | Pure LP (79,804 vars) | Pure LP (79,804 vars) | True MILP (79,804 continuous + 22,800 binary) |
-| **Model construction** | PuLP `addConstraint` loop | `addConstr` loop | Vectorized numpy arrays + `addConstrs` generators + `quicksum` |
-| **Solver tuning** | Default | Default | Barrier method, aggressive presolve & cuts, MIPGap 0.01% |
-| **Algorithm** | Dual simplex | Barrier + crossover | Barrier + crossover + branch-and-cut |
-| **Solve time** | 10.2s | 1.1s | 11.4s |
-| **Objective** | 77,592,395 TWD | 77,592,395 TWD | 77,592,395 TWD |
-| **MIP Gap** | — | — | 0.0000% |
+![Total Cost by Case](docs/figures/fig1_total_cost_by_case.png)
 
-All three versions produce identical optimal solutions. The v2 Gurobi version is the most physically accurate (BESS can't charge and discharge at the same time), while the v1 HiGHS version requires no license. The binary exclusivity constraint has zero cost here (LP relaxation was already not doing simultaneous charge/discharge), but makes the model formally correct for future extensions with more complex BESS logic.
+![Cost Breakdown](docs/figures/fig2_cost_breakdown.png)
 
-### MILP Configuration
+![Sizing Comparison](docs/figures/fig3_sizing_comparison.png)
+
+![RE Fraction](docs/figures/fig4_re_fraction.png)
+
+![BESS E/P Ratio](docs/figures/fig5_bess_ep_ratio.png)
+
+![Bridge Comparison](docs/figures/fig6_bridge_comparison.png)
+
+![Robustness Uplift](docs/figures/fig7_robustness_uplift.png)
+
+![Feature Progression](docs/figures/fig8_feature_progression.png)
+
+### MILP v10 Configuration
 
 | Parameter | Value |
 |-----------|-------|
 | PV CAPEX | 40,000 TWD/kW |
-| BESS power CAPEX | 8,000 TWD/kW |
-| BESS energy CAPEX | 10,000 TWD/kWh |
-| Discount rate | 3% |
-| PV lifetime | 20 yr (CRF 0.0672) |
-| BESS lifetime | 10 yr (CRF 0.1172) |
+| BESS power CAPEX | 11,944 TWD/kW |
+| BESS energy CAPEX | 7,738 TWD/kWh |
+| BESS FOM | 1% of energy CAPEX |
+| Discount rate | 5% |
+| PV lifetime | 20 yr (CRF 0.0802) |
+| BESS lifetime | 15 yr (CRF 0.0963) |
 | Charge/discharge efficiency | 95% / 95% |
 | SOC limits | 10%–90% |
-| RE target | 30% |
-| Feed-in tariff | 2.0 TWD/kWh |
+| RE target | 20% |
+| T-REC cost | 4.63 TWD/kWh |
+| κ (demand proxy) | 1.0035 |
+| No export | PV routes to load or BESS only |
 
 ## Project Structure
 
@@ -240,27 +245,23 @@ Harry-PV/
 ├── notebooks_forecast_fixed/          # Spec-compliant forecast notebooks
 │   ├── v1_fixed_baseline.ipynb        #   Baseline XGBoost (single model)
 │   └── v2_fixed_tuned_xgb_5seed.ipynb #   Tuned XGBoost + 5-seed ensemble
-├── notebooks_bridge/                  # Bridge layer notebook
-│   └── bridge_v1.ipynb                #   Bridge v1 (per Spec v3)
-├── notebooks_milp/                    # MILP optimization notebooks
-│   ├── milp_common.py                 #   Shared config, data loading, results
-│   ├── milp_v1_gurobi.ipynb           #   Gurobi solver (academic license)
-│   ├── milp_v1_highs.ipynb            #   PuLP + HiGHS solver (open-source)
-│   └── milp_v2_gurobi.ipynb           #   Gurobi optimized (vectorized + BESS exclusivity)
+├── notebooks_bridge/                  # Bridge layer notebooks
+│   ├── bridge_v7.ipynb                #   Bridge v7 (current, per Spec v7)
+│   └── bridge_v1.ipynb                #   Bridge v1 (legacy, per Spec v3)
+├── notebooks_milp/                    # STO-MILP v10 notebooks
+│   ├── milp_common.py                 #   Shared config, data loading, case table
+│   ├── milp_v10_cases.ipynb           #   8-case experimental matrix runner
+│   ├── milp_v10_bridge_comparison.ipynb #  Bridge v1 vs v7 comparison
+│   └── milp_figures.ipynb             #   Results figures (Fig 1–8)
 ├── notebooks_experiments/              # Experiment notebooks
-│   ├── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
-│   ├── pieter_comparison.ipynb        #   Per-season comparison with Pieter's RNN-LSTM
-│   └── thesis_figures.ipynb           #   Publication-quality thesis visualizations
+│   ├── nwp_contribution.ipynb         #   NWP ablation study
+│   ├── pieter_comparison.ipynb        #   Comparison with Pieter's RNN-LSTM
+│   └── thesis_figures.ipynb           #   Forecast thesis figures
 ├── notebooks/                         # Original iteration notebooks (archived)
-│   ├── v1_baseline.ipynb
-│   ├── v2_tuned_xgb_5seed.ipynb
-│   ├── v3_xgb_10seed.ipynb
-│   ├── v4_lightgbm.ipynb
-│   ├── v5_catboost.ipynb
-│   └── v6_3model_ensemble.ipynb
 ├── pipeline_outputs/                  # Forecast pipeline artifacts (gitignored)
-├── bridge_outputs/                    # Bridge layer artifacts (gitignored)
-├── milp_outputs/                      # MILP results (gitignored)
+├── bridge_outputs/                    # Bridge v7 outputs (gitignored)
+├── bridge_outputs_v1/                 # Bridge v1 outputs (gitignored)
+├── milp_outputs/                      # MILP v10 results & figures (gitignored)
 ├── docs/figures/                      # Thesis figures (PNG, tracked in git)
 ├── Project_Archive_Prediction_Final/  # Harry's original code & data (reference)
 └── README.md

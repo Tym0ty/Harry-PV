@@ -167,7 +167,7 @@ Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full
 
 ## MILP Optimization Results
 
-Two-stage stochastic MILP for optimal campus microgrid sizing: PV, BESS, and Taipower contract demand. Stage 1 (here-and-now) sizes the equipment; Stage 2 (recourse) dispatches hourly across 95 representative days × 5 PV scenarios. Both Gurobi and HiGHS solvers produce identical results.
+Two-stage stochastic MILP for optimal campus microgrid sizing: PV, BESS, and Taipower contract demand. Stage 1 (here-and-now) sizes the equipment; Stage 2 (recourse) dispatches hourly across 95 representative days × 5 PV scenarios. Three notebook versions provided — all produce identical optimal capacities and costs.
 
 ### Optimal Capacities
 
@@ -201,20 +201,22 @@ Two-stage stochastic MILP for optimal campus microgrid sizing: PV, BESS, and Tai
 | Solve time (HiGHS) | 10.2s |
 | Solve time (Gurobi) | 1.1s |
 
-### Solver Comparison: Gurobi vs HiGHS
+### Solver & Version Comparison
 
-Both solvers produce identical optimal solutions for this problem. The key differences:
+| | v1 HiGHS | v1 Gurobi | v2 Gurobi (Optimized) |
+|---|---|---|---|
+| **Solver** | PuLP + HiGHS | gurobipy | gurobipy |
+| **License** | Open-source (MIT) | Academic (free for students) | Academic (free for students) |
+| **BESS exclusivity** | No (LP relaxation) | No (LP relaxation) | Yes — binary variables prevent simultaneous charge/discharge |
+| **Problem type** | Pure LP (79,804 vars) | Pure LP (79,804 vars) | True MILP (79,804 continuous + 22,800 binary) |
+| **Model construction** | PuLP `addConstraint` loop | `addConstr` loop | Vectorized numpy arrays + `addConstrs` generators + `quicksum` |
+| **Solver tuning** | Default | Default | Barrier method, aggressive presolve & cuts, MIPGap 0.01% |
+| **Algorithm** | Dual simplex | Barrier + crossover | Barrier + crossover + branch-and-cut |
+| **Solve time** | 10.2s | 1.1s | 11.4s |
+| **Objective** | 77,592,395 TWD | 77,592,395 TWD | 77,592,395 TWD |
+| **MIP Gap** | — | — | 0.0000% |
 
-| | Gurobi | HiGHS |
-|---|---|---|
-| **License** | Commercial (free academic license via [gurobi.com](https://www.gurobi.com/academia/academic-program-and-licenses/)) | Open-source (MIT), no license needed |
-| **Python API** | Native `gurobipy` — rich API with callbacks, lazy constraints, solution pools | Via `PuLP` wrapper — simpler but less control |
-| **Algorithm used** | Barrier (interior-point) + crossover | Dual simplex |
-| **Solve time** | 1.1s | 10.2s |
-| **Iterations** | 9,105 | 60,468 |
-| **When it matters** | Large MILPs with binary/integer variables (unit commitment, on/off decisions) — advanced branch-and-cut with heuristics | Small-medium LPs and MILPs where license cost or availability is a constraint |
-
-For the current formulation (pure LP, ~80K continuous variables), HiGHS is perfectly adequate. Gurobi becomes significantly advantageous if the model grows to include integer variables (e.g., binary on/off for BESS, discrete PV panel counts, unit commitment constraints).
+All three versions produce identical optimal solutions. The v2 Gurobi version is the most physically accurate (BESS can't charge and discharge at the same time), while the v1 HiGHS version requires no license. The binary exclusivity constraint has zero cost here (LP relaxation was already not doing simultaneous charge/discharge), but makes the model formally correct for future extensions with more complex BESS logic.
 
 ### MILP Configuration
 
@@ -243,7 +245,8 @@ Harry-PV/
 ├── notebooks_milp/                    # MILP optimization notebooks
 │   ├── milp_common.py                 #   Shared config, data loading, results
 │   ├── milp_v1_gurobi.ipynb           #   Gurobi solver (academic license)
-│   └── milp_v1_highs.ipynb            #   PuLP + HiGHS solver (open-source)
+│   ├── milp_v1_highs.ipynb            #   PuLP + HiGHS solver (open-source)
+│   └── milp_v2_gurobi.ipynb           #   Gurobi optimized (vectorized + BESS exclusivity)
 ├── notebooks_experiments/              # Experiment notebooks
 │   ├── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
 │   ├── pieter_comparison.ipynb        #   Per-season comparison with Pieter's RNN-LSTM

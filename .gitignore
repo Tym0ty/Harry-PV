@@ -5,6 +5,7 @@ data/
 # Pipeline outputs (regenerable)
 pipeline_outputs/
 bridge_outputs/
+milp_outputs/
 
 # Python
 __pycache__/

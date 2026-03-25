@@ -165,6 +165,57 @@ MAE heatmap with hour-of-day on the y-axis and month on the x-axis (daylight hou
 
 Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full test set. The diagonal line represents perfect prediction. Point density is shown via color intensity. The R² value is annotated directly on the plot. The model tracks well across the full GHI range, with the expected increase in scatter at high irradiance values where cloud transients create the most variability.
 
+## MILP Optimization Results
+
+Two-stage stochastic MILP for optimal campus microgrid sizing: PV, BESS, and Taipower contract demand. Stage 1 (here-and-now) sizes the equipment; Stage 2 (recourse) dispatches hourly across 95 representative days × 5 PV scenarios. Both Gurobi and HiGHS solvers produce identical results.
+
+### Optimal Capacities
+
+| Asset | Optimal Size |
+|-------|-------------|
+| PV Capacity | 13,966 kW |
+| BESS Power | 1,551 kW |
+| BESS Energy | 7,151 kWh (E/P = 4.6h) |
+| Contract Demand | 3,081 kW |
+
+### Annual Cost Breakdown
+
+| Component | Cost (TWD) |
+|-----------|-----------|
+| PV annuity | 37,550,128 |
+| BESS power annuity | 1,454,583 |
+| BESS energy annuity | 8,383,675 |
+| BESS O&M | 715,144 |
+| Contract demand | 8,266,976 |
+| **Investment subtotal** | **56,370,507** |
+| Operating cost | 21,221,889 |
+| **Total annual cost** | **77,592,395 (77.59 M)** |
+
+### Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| RE share | 51.0% (target: 30%) |
+| Baseline annual cost (no BESS) | 95.34 M TWD |
+| Annual savings | 17.75 M TWD (18.6%) |
+| Solve time (HiGHS) | 10.2s |
+| Solve time (Gurobi) | 1.1s |
+
+### MILP Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| PV CAPEX | 40,000 TWD/kW |
+| BESS power CAPEX | 8,000 TWD/kW |
+| BESS energy CAPEX | 10,000 TWD/kWh |
+| Discount rate | 3% |
+| PV lifetime | 20 yr (CRF 0.0672) |
+| BESS lifetime | 10 yr (CRF 0.1172) |
+| Charge/discharge efficiency | 95% / 95% |
+| SOC limits | 10%–90% |
+| RE target | 30% |
+| Feed-in tariff | 2.0 TWD/kWh |
+
 ## Project Structure
 
 ```
@@ -174,6 +225,10 @@ Harry-PV/
 │   └── v2_fixed_tuned_xgb_5seed.ipynb #   Tuned XGBoost + 5-seed ensemble
 ├── notebooks_bridge/                  # Bridge layer notebook
 │   └── bridge_v1.ipynb                #   Bridge v1 (per Spec v3)
+├── notebooks_milp/                    # MILP optimization notebooks
+│   ├── milp_common.py                 #   Shared config, data loading, results
+│   ├── milp_v1_gurobi.ipynb           #   Gurobi solver (academic license)
+│   └── milp_v1_highs.ipynb            #   PuLP + HiGHS solver (open-source)
 ├── notebooks_experiments/              # Experiment notebooks
 │   ├── nwp_contribution.ipynb         #   NWP ablation study (with vs without GFS)
 │   ├── pieter_comparison.ipynb        #   Per-season comparison with Pieter's RNN-LSTM
@@ -187,6 +242,7 @@ Harry-PV/
 │   └── v6_3model_ensemble.ipynb
 ├── pipeline_outputs/                  # Forecast pipeline artifacts (gitignored)
 ├── bridge_outputs/                    # Bridge layer artifacts (gitignored)
+├── milp_outputs/                      # MILP results (gitignored)
 ├── docs/figures/                      # Thesis figures (PNG, tracked in git)
 ├── Project_Archive_Prediction_Final/  # Harry's original code & data (reference)
 └── README.md

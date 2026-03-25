@@ -176,29 +176,37 @@ Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full
 
 ## STO-MILP v10 — Optimization Results
 
-Two-stage stochastic MILP for optimal campus microgrid sizing (per STO-MILP Engineering Spec v10). Gurobi solver with inter-day SOC linkage (Method 1), Green SOC tracking for RE accounting, segmented demand billing with κ proxy, and T-REC top-up.
+Two-stage stochastic MILP for optimal campus microgrid sizing (per BH_STO-MILP Engineering Spec Final v2.3). Gurobi solver with:
+- **PV sizing** as decision variable (cap_pv scales bridge 50 kW reference)
+- **Inter-day SOC linkage** (Method 1 superposition: E_inter + ΔE)
+- **Green SOC** tracking with inter/intra superposition for RE accounting
+- **PWL battery degradation** (4-segment convex cost, C14)
+- **TOU_FixedPeak tariff** (spec §6.2 summer/non-summer rates)
+- **Segmented demand billing** with κ=1.0035 proxy and 2-tier over-contract penalty
+- **T-REC top-up** to meet RE20 target
+- **Replay/audit layer** for design-to-replay gap validation
 
 ### 8-Case Experimental Matrix
 
 | Case | Total Cost (M TWD) | PV (kW) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% |
 |------|-------------------|---------|---------------|-------------|---------------|-----|
-| M0_I0_R0 (baseline) | 75.88 | 6,955 | 11,016 | 1,585 | 2,348 | 40.7 |
-| M1_I0_R0 (+inter-day) | 79.25 | 6,541 | 4,223 | 971 | 2,670 | 34.0 |
-| M2_I0_R0 (+risk days) | 82.92 | 7,241 | 7,803 | 1,501 | 2,889 | 39.1 |
-| **M2_I1_R0 (mainline)** | **83.52** | **6,711** | **7,899** | **1,350** | **3,027** | **36.2** |
-| M2_I1_R1_p3 (+3% all-day) | 86.03 | 6,890 | 8,049 | 1,381 | 3,126 | 36.9 |
-| M2_I1_R1_p5 (+5% all-day) | 87.70 | 7,047 | 8,294 | 1,418 | 3,178 | 37.3 |
-| M2_I1_R2_p3 (+3% peak) | 84.41 | 6,902 | 7,932 | 1,308 | 3,065 | 36.9 |
-| M2_I1_R2_p5 (+5% peak) | 85.00 | 7,055 | 8,126 | 1,298 | 3,074 | 38.6 |
+| M0_I0_R0 (baseline) | 84.69 | 7,467 | 12,566 | 1,710 | 2,701 | 40.6 |
+| M1_I0_R0 (+inter-day) | 90.18 | 7,197 | 4,652 | 1,116 | 2,787 | 36.7 |
+| M2_I0_R0 (+risk days) | 94.10 | 7,719 | 7,283 | 1,447 | 2,938 | 40.2 |
+| **M2_I1_R0 (mainline)** | **94.92** | **7,466** | **7,624** | **1,363** | **3,016** | **39.4** |
+| M2_I1_R1_p3 (+3% all-day) | 97.77 | 7,692 | 7,866 | 1,405 | 3,105 | 38.8 |
+| M2_I1_R1_p5 (+5% all-day) | 99.67 | 7,842 | 8,018 | 1,432 | 3,165 | 39.4 |
+| M2_I1_R2_p3 (+3% peak) | 95.88 | 7,684 | 7,903 | 1,346 | 3,031 | 39.7 |
+| M2_I1_R2_p5 (+5% peak) | 96.53 | 7,817 | 8,002 | 1,326 | 3,049 | 40.3 |
 
 ### Bridge v1 vs v7 Comparison (Mainline M2_I1_R0)
 
 | Bridge | Total Cost (M TWD) | PV (kW) | BESS E (kWh) | Contract (kW) | RE% | Solve Time |
 |--------|-------------------|---------|---------------|---------------|-----|-----------|
-| v1 (95 repdays) | 83.23 | 7,168 | 8,071 | 2,991 | 39.0 | 33.7s |
-| v7 (44 repdays) | 83.52 | 6,711 | 7,899 | 3,027 | 36.2 | 25.5s |
+| v1 (95 repdays) | 94.60 | 8,088 | 9,193 | 2,887 | 42.8 | 30.8s |
+| v7 (44 repdays) | 94.92 | 7,466 | 7,624 | 3,016 | 39.4 | 22.0s |
 
-Cost difference: +0.3% (v7 vs v1). Bridge v7 solves 1.3x faster with 54% fewer repdays while producing near-identical optimal sizing.
+Cost difference: +0.3% (v7 vs v1). Bridge v7 solves 1.4x faster with 54% fewer repdays while producing near-identical total cost.
 
 ### MILP v10 Figures
 

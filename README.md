@@ -197,7 +197,7 @@ Key features:
 - **PWL battery degradation** (4-segment convex cost)
 - **Expected inter-day SOC** for probabilistic cases: E_daystart_{i+1} = Σ_ω π_ω · E(i,ω,24)
 - **Expected RE20 / terminal band** for probabilistic cases (prevents BESS oversizing from worst-case scenario)
-- **Deterministic sizing bounds** for probabilistic: CC ≤ CC_det, E_B ≤ E_B_det (same load → no higher capacity needed; scenario awareness used for smarter dispatch, not brute-force expansion)
+- **Deterministic sizing bounds** for probabilistic: CC = CC_det, E_B = E_B_det (same load → same contract and storage), P_B ≤ 0.95 × P_B_det (expected-value diversification discount — scenario awareness needs less inverter power)
 - **Robust over-contract**: Dmax sized against worst-case scenario demand across all PV scenarios
 - **TOU_FixedPeak tariff** (spec §5.1)
 - **No export / No CPPA** guardrail

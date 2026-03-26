@@ -6,12 +6,17 @@ Day-ahead GHI (Global Horizontal Irradiance) probabilistic forecasting pipeline 
 
 ```
 Forecast Layer:
-  CWA Hourly Obs + GFS NWP → Feature Engineering → 19-Quantile Models → CQR Calibration
-  → GHI Scenario Generation → GHI→PV Conversion → k-Medoids Reduction → Bridge-Ready Package
+  CWA Hourly Obs + GFS NWP → Feature Engineering → 19-Quantile XGBQ → CQR Calibration
+  → S5a: GHI Q50 → PVWatts → pv_point_forecast_caseyear.parquet (Det PV)
+  → S6-S8: Gaussian Copula → GHI→PV → k-Medoids → pv_scenarios_reduced_caseyear.parquet (Prob PV)
 
-Bridge Layer:
-  Daily PV Packages → Day Descriptors → Risk-Day Tagging → Body-Day Clustering
-  → Medoid Selection → Calendar Map + Weights → Repday Scenario Tables → Annual MILP Ingest
+Full-Year Bridge Layer:
+  Det PV + Prob PV + NTUST Load → Calendar/Tariff Tags → Load Perturbation
+  → 4 Full-Year MILP Ingest Packages (C0–C3) + Truth Replay Package
+
+Full-Year MILP:
+  Ingest Package → 365×24 Direct Solve (Gurobi) → Sizing (CC*, P_B*, E_B*)
+  → Fixed-Design Replay on Truth Data → Design-to-Replay Gap Analysis
 ```
 
 - **Gate-compliant**: All NWP data respects D-1 12:00 UTC deadline (no future data leakage)
@@ -46,9 +51,9 @@ The forecast model (S0–S4b) is identical between original and fixed notebooks.
 
 | Stage | Original | Fixed (Spec-Compliant) |
 |-------|----------|----------------------|
-| S5 | Load 19Q via residual quantiles | Deterministic load profile |
+| S5 | Load 19Q via residual quantiles | **S5a**: Det PV point artifact (GHI Q50 → PV); **S5b**: Det load profile |
 | S6 | Gaussian Copula joint GHI+Load | GHI-only scenarios + deterministic load appended |
-| S8 | k-medoids on PV+Load (48-dim) | k-medoids on PV only (24-dim) |
+| S8 | k-medoids on PV+Load (48-dim) | k-medoids on PV only (24-dim); also outputs PV-only parquet |
 
 ### Comparison with Harry's Original Pipeline
 
@@ -92,41 +97,38 @@ Re-evaluation using Pieter Hernando's methodology (per-season, all hours includi
 
 Caveats: different test years (2024–25 vs 2019), our model uses NWP (GFS) which Pieter's LSTM did not, and Pieter trains per-season while we train one model on all data.
 
-## Bridge Layer Results
+## Bridge Layer
 
-### Bridge v7 (Current — per Spec v7, 2025-03-25)
+### Full-Year Bridge (Current — per FF0326Harry_Bridge_Layer_Engineering_vfinal)
 
-| Metric | Value |
-|--------|-------|
-| Calendar days | 365 |
-| Total repdays | 44 (16 body + 28 risk) |
-| Body clusters | 16 (global k-medoids with month×day_type weighted features) |
-| Risk scoring | Single Stress_i = PeakLoad − PV_P10_peakWindow (top 5%) |
-| Scenarios per repday | 5 (per-repday, inherited from source date) |
-| Calendar map coverage | 100% |
-| Weight sum | 365 |
-
-### Bridge v1 (Legacy — per Spec v3, for comparison)
+The bridge is now a **full-year data organization layer** (not compression). It assembles forecast PV and load data into standardized ingest packages for the full-year direct solve MILP.
 
 | Metric | Value |
 |--------|-------|
-| Total repdays | 95 (20 body + 75 risk) |
-| Body clusters | 20 (stratified by month) |
-| Risk scoring | Union of 3 criteria (top 10% stress/peak-load/low-PV) |
+| Case year | 2024-11-01 to 2025-10-31 (365 days) |
+| PV scale | 50 kW reference → 2,687 kW |
+| Deterministic PV | Pre-computed S5 artifact (GHI Q50 → PVWatts → scaled) |
+| Probabilistic PV | 5 reduced scenarios per day |
+| Load perturbation | Billing hours ×1.05, non-billing ×1.02 |
+| Output packages | 4 MILP ingest + 1 truth replay + calendar manifest |
 
-### Bridge Output Artifacts (in `bridge_outputs/`)
+### Bridge Output Artifacts (in `bridge_outputs_fullyear/`)
 
 | File | Purpose |
 |------|---------|
-| `repdays_metadata.parquet` | Master index of representative days and risk days |
-| `calendar_map.parquet` | Maps each calendar day to a repday (for SOC linkage) |
-| `scenarios_repdays_pv_reduced.parquet` | Repday-level PV scenarios for MILP |
-| `risk_day_tags.parquet` | Risk tags and scores for all dates |
-| `risk_day_scores.csv` | Risk day Stress_i scores (v7) |
-| `bridge_clustering_summary.csv` | Cluster assignment summary (v7) |
-| `bridge_coverage_by_month.csv` | Month-level coverage diagnostics (v7) |
-| `bridge_report.json` | Bridge parameters and QA diagnostics |
+| `caseyear_calendar_manifest.parquet` | Calendar index with season/day_type/holiday tags |
+| `full_year_milp_ingest_pvdet_loaddet.parquet` | C0: Det PV + Det Load |
+| `full_year_milp_ingest_pvprob_loaddet.parquet` | C1: Prob PV + Det Load |
+| `full_year_milp_ingest_pvdet_loadpert.parquet` | C2: Det PV + Pert Load |
+| `full_year_milp_ingest_pvprob_loadpert.parquet` | C3: Prob PV + Pert Load |
+| `full_year_replay_truth_package.parquet` | Realized PV + Load for replay |
+| `load_perturbation_manifest.parquet` | Perturbation mode and multipliers |
+| `bridge_full_year_report.json` | QA and coverage summary |
 | `bridge_run_metadata.json` | Reproducibility metadata |
+
+### Legacy: Repday-Based Bridge (v7/v1)
+
+Previous bridge versions used representative-day clustering (16 body + 28 risk days in v7). Outputs in `bridge_outputs/` (v7) and `bridge_outputs_v1/` (v1). Superseded by the full-year approach.
 
 ## Forecast Thesis Figures
 
@@ -174,97 +176,88 @@ MAE heatmap with hour-of-day on the y-axis and month on the x-axis (daylight hou
 
 Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full test set. The diagonal line represents perfect prediction. Point density is shown via color intensity. The R² value is annotated directly on the plot. The model tracks well across the full GHI range, with the expected increase in scatter at high irradiance values where cloud transients create the most variability.
 
-## STO-MILP v10 — Optimization Results
+## Full-Year Direct Solve MILP — C0–C3 Results
 
-Two-stage stochastic MILP for optimal campus microgrid sizing (per BH_STO-MILP Engineering Spec Final v2.3). PV capacity is **fixed at 2,687 kW** (existing installation); the MILP optimizes **BESS power/energy** and **contract capacity**. Gurobi solver with:
-- **Fixed PV** at 2,687 kW (bridge 50 kW reference scaled to installed capacity)
-- **Inter-day SOC linkage** (Method 1 superposition: E_inter + ΔE)
-- **Green SOC** tracking with inter/intra superposition for RE accounting
-- **PWL battery degradation** (4-segment convex cost, C14)
-- **TOU_FixedPeak tariff** (spec §6.2 summer/non-summer rates)
-- **Segmented demand billing** with κ=1.0035 proxy and 2-tier over-contract penalty
-- **T-REC top-up** to meet RE20 target
-- **Replay/audit layer** for design-to-replay gap validation
+Full-year direct solve MILP for campus microgrid sizing (per FF0326Harry_MILP_Engineering_Spec_FullYear_Formal_vfinal). Replaces the previous representative-day approach with 365-day chronological solve. PV capacity is **fixed at 2,687 kW**; the MILP optimizes **BESS power/energy** and **contract capacity**.
 
-### 8-Case Experimental Matrix
+Key features:
+- **Full-year direct solve**: 365 days × 24 hours (no representative-day compression)
+- **P_grid split**: P_grid_load + P_grid_ch (grid can charge battery separately)
+- **Green SOC** tracking for RE accounting
+- **PWL battery degradation** (4-segment convex cost)
+- **Expected inter-day SOC** for probabilistic cases: E_daystart_{i+1} = Σ_ω π_ω · E(i,ω,24)
+- **TOU_FixedPeak tariff** (spec §5.1)
+- **No export / No CPPA** guardrail
+- **Fixed-design replay** on truth data for validation
 
-Cases are labeled **M{method}_I{info}_R{robustness}**:
-- **M0** = daily SOC reset (no inter-day), **M1** = inter-day SOC linkage (Method 1), **M2** = M1 + risk days
-- **I0** = deterministic PV (P50 single scenario), **I1** = probabilistic PV (5 scenarios/repday)
-- **R0** = no load uplift, **R1** = all-day load uplift, **R2** = peak-hour-only uplift
+### 4-Case Matrix (C0–C3)
 
-All cases use PV = 2,687 kW (fixed). Decision variables: BESS P (kW), BESS E (kWh), Contract (kW).
+| Case | PV Info | Load Info | Positioning |
+|------|---------|-----------|-------------|
+| **C0** | Deterministic (GHI Q50 → PV) | Deterministic | Baseline |
+| **C1** | Probabilistic (5 scenarios/day) | Deterministic | Value of probabilistic PV |
+| **C2** | Deterministic | Perturbed (billing ×1.05, non-billing ×1.02) | Load stress impact |
+| **C3** | Probabilistic | Perturbed | Probabilistic PV under load stress |
 
-#### Deterministic PV (I0) — P50 single scenario
+### Solve Results
 
-| Case | Total Cost (M TWD) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% | T-REC (M TWD) |
-|------|-------------------|---------------|-------------|---------------|-----|---------------|
-| M0_I0_R0 (baseline) | 96.88 | 10,375 | 1,229 | 2,703 | 14.7 | 5.15 |
-| M1_I0_R0 (+inter-day) | 101.20 | 3,174 | 731 | 3,203 | 14.7 | 5.15 |
-| M2_I0_R0 (+risk days) | 107.50 | 3,942 | 867 | 3,468 | 14.6 | 5.34 |
+| Case | Total AEC (M NTD) | BESS P (kW) | BESS E (kWh) | E/P | CC (kW) | RE% | Solve (s) |
+|------|-------------------|-------------|--------------|-----|---------|-----|-----------|
+| C0 | 95.56 | 1,227 | 7,733 | 6.3 | 3,195 | 15.0 | 12.0 |
+| C1 | 95.35 | 1,319 | 9,616 | 7.3 | 3,116 | 15.9 | 32.4 |
+| C2 | 100.95 | 1,287 | 8,286 | 6.4 | 3,331 | 14.5 | 11.1 |
+| C3 | 100.70 | 1,391 | 10,356 | 7.4 | 3,262 | 15.4 | 31.0 |
 
-#### Probabilistic PV (I1) — 5 stochastic scenarios per repday
+### Replay Results (Truth Data)
 
-| Case | Total Cost (M TWD) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% | T-REC (M TWD) |
-|------|-------------------|---------------|-------------|---------------|-----|---------------|
-| **M2_I1_R0 (mainline)** | **107.82** | **4,321** | **825** | **3,586** | **14.6** | **5.34** |
-| M2_I1_R1_p3 (+3% all-day) | 111.70 | 4,357 | 835 | 3,708 | 14.2 | 5.93 |
-| M2_I1_R1_p5 (+5% all-day) | 114.28 | 4,381 | 841 | 3,790 | 13.9 | 6.33 |
-| M2_I1_R2_p3 (+3% peak) | 109.49 | 4,033 | 745 | 3,692 | 14.5 | 5.57 |
-| M2_I1_R2_p5 (+5% peak) | 110.64 | 4,616 | 853 | 3,705 | 14.3 | 5.73 |
+| Case | Solve (M) | Replay (M) | Gap | Over-Contract (M) | Over Months | Worst Month (M) | RE% |
+|------|-----------|------------|-----|--------------------|-------------|-----------------|-----|
+| C0 | 95.56 | 95.77 | +0.2% | 0.28 | 4 | 10.52 | 14.9 |
+| C1 | 95.35 | 95.95 | +0.6% | 0.20 | 3 | 10.30 | 14.9 |
+| C2 | 100.95 | 95.93 | −5.0% | 0.09 | 2 | 10.42 | 14.9 |
+| C3 | 100.70 | 96.16 | −4.5% | 0.02 | 1 | 10.17 | 14.9 |
 
-#### Deterministic vs Probabilistic (M2_I0_R0 vs M2_I1_R0)
+### Key Findings
 
-The deterministic case (I0) sees only the expected PV output and optimizes against it — yielding a lower cost (107.50M vs 107.82M). The probabilistic case (I1) sees 5 PV scenarios including low-output tails, so it hedges with higher contract capacity (+118 kW) and more BESS energy (+379 kWh) to protect against cloudy days. The +0.32M cost premium is the **value of stochastic hedging**.
+**Does probabilistic PV outperform deterministic?**
 
-With PV fixed at 2,687 kW, RE reaches ~14.6% (below the 20% target), requiring ~5.3M TWD/yr in T-REC purchases to meet the RE20 constraint.
+C1 (probabilistic) is actually **cheaper in solve cost** than C0 (deterministic): 95.35M vs 95.56M (−0.22%). With the updated PVWatts-based deterministic PV (from the S5 artifact), the deterministic forecast is more realistic, and the probabilistic approach provides both **lower design cost** and **better risk management**:
 
-### Bridge v1 vs v7 Comparison (Mainline M2_I1_R0)
+| Metric | C0 (Det) | C1 (Prob) | C1 Advantage |
+|--------|----------|-----------|--------------|
+| Solve cost (design) | 95.56M | 95.35M | −0.22% cheaper |
+| Replay cost (truth) | 95.77M | 95.95M | +0.19% |
+| Over-contract months | 4 | 3 | 25% fewer |
+| Worst-month bill | 10.52M | 10.30M | −2.1% |
+| Solve-to-replay gap | +0.2% | +0.6% | Both small |
+| Over-contract fees | 0.28M | 0.20M | −29% |
+| BESS investment | 1,227 kW / 7,733 kWh | 1,319 kW / 9,616 kWh | +24% E_B (hedging) |
 
-| Bridge | Total Cost (M TWD) | BESS E (kWh) | BESS P (kW) | Contract (kW) | RE% | Solve Time |
-|--------|-------------------|---------------|-------------|---------------|-----|-----------|
-| v1 (95 repdays) | 110.33 | 9,292 | 1,321 | 3,252 | 14.5 | 32.9s |
-| v7 (44 repdays) | 107.82 | 4,321 | 825 | 3,586 | 14.6 | 24.3s |
+The probabilistic design invests more in BESS energy capacity as a hedge, which pays off with fewer over-contract events and lower worst-month bills. The marginal replay cost difference (0.18M) is negligible compared to the operational risk reduction.
 
-Bridge v7 solves 1.4x faster with 54% fewer repdays. The v1→v7 cost difference (−2.3%) reflects different scenario representations with the smaller bridge producing a leaner BESS sizing.
+**Load perturbation effect:**
 
-### MILP v10 Figures
+Under perturbed load stress, the pattern is stronger — C3 achieves the best risk profile of all cases (only 1 over-contract month, lowest worst-month bill at 10.17M) while adding just +0.23% cost vs C2. The perturbation stress (billing +5%, non-billing +2%) causes the solve to over-estimate costs by 4–5%, creating a conservative design buffer.
 
-Visualizations generated from `notebooks_milp/milp_figures.ipynb`:
+### MILP Configuration
 
-![Total Cost by Case](docs/figures/fig1_total_cost_by_case.png)
+| Parameter | Value | Spec ID |
+|-----------|-------|---------|
+| PV capacity (fixed) | 2,687 kW | PV_001 |
+| BESS power CAPEX | 11,944 NTD/kW | BESS_006 |
+| BESS energy CAPEX | 7,738 NTD/kWh | BESS_007 |
+| Discount rate | 5% | FIN_001 |
+| BESS lifetime | 15 yr (CRF 0.0963) | FIN_002/003 |
+| η_ch / η_dis | 0.95 / 0.95 | BESS_001/002 |
+| SOC limits | 10%–90% | BESS_003/004 |
+| RE target | 20% | SYS_004 |
+| T-REC cost | 4.63 NTD/kWh | RE_002 |
+| κ (demand proxy) | 1.0035 | CP_006 |
+| No export / No CPPA | Enforced | C14 |
 
-![Cost Breakdown](docs/figures/fig2_cost_breakdown.png)
+### Legacy: Repday-Based 8-Case Results (STO-MILP v10)
 
-![Sizing Comparison](docs/figures/fig3_sizing_comparison.png)
-
-![RE Fraction](docs/figures/fig4_re_fraction.png)
-
-![BESS E/P Ratio](docs/figures/fig5_bess_ep_ratio.png)
-
-![Bridge Comparison](docs/figures/fig6_bridge_comparison.png)
-
-![Robustness Uplift](docs/figures/fig7_robustness_uplift.png)
-
-![Feature Progression](docs/figures/fig8_feature_progression.png)
-
-### MILP v10 Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| PV CAPEX | 40,000 TWD/kW |
-| BESS power CAPEX | 11,944 TWD/kW |
-| BESS energy CAPEX | 7,738 TWD/kWh |
-| BESS FOM | 1% of energy CAPEX |
-| Discount rate | 5% |
-| PV lifetime | 20 yr (CRF 0.0802) |
-| BESS lifetime | 15 yr (CRF 0.0963) |
-| Charge/discharge efficiency | 95% / 95% |
-| SOC limits | 10%–90% |
-| RE target | 20% |
-| T-REC cost | 4.63 TWD/kWh |
-| κ (demand proxy) | 1.0035 |
-| No export | PV routes to load or BESS only |
+The previous repday-based implementation (per BH_STO-MILP Engineering Spec v2.3) used Bridge v7's 44 representative days with calendar mapping. Key result: mainline M2_I1_R0 = 107.82M NTD, BESS 825/4321 kW/kWh. See `milp_outputs/case_summary_main.csv` for full results. The full-year direct solve (C0–C3 above) supersedes this approach.
 
 ## Project Structure
 
@@ -273,25 +266,24 @@ Harry-PV/
 ├── notebooks_forecast_fixed/          # Spec-compliant forecast notebooks
 │   ├── v1_fixed_baseline.ipynb        #   Baseline XGBoost (single model)
 │   └── v2_fixed_tuned_xgb_5seed.ipynb #   Tuned XGBoost + 5-seed ensemble
-├── notebooks_bridge/                  # Bridge layer notebooks
-│   ├── bridge_v7.ipynb                #   Bridge v7 (current, per Spec v7)
-│   └── bridge_v1.ipynb                #   Bridge v1 (legacy, per Spec v3)
-├── notebooks_milp/                    # STO-MILP v10 notebooks
-│   ├── milp_common.py                 #   Shared config, data loading, case table
-│   ├── milp_v10_cases.ipynb           #   8-case experimental matrix runner
-│   ├── milp_v10_bridge_comparison.ipynb #  Bridge v1 vs v7 comparison
-│   └── milp_figures.ipynb             #   Results figures (Fig 1–8)
+├── notebooks_bridge/                  # Bridge layer
+│   ├── bridge_full_year.py            #   Full-year bridge (current, per vfinal spec)
+│   ├── bridge_v7.ipynb                #   Legacy repday bridge v7
+│   └── bridge_v1.ipynb                #   Legacy repday bridge v1
+├── notebooks_milp/                    # Full-year MILP
+│   ├── milp_common.py                 #   Shared config, data loading, C0-C3 case table
+│   ├── milp_solver.py                 #   Full-year direct solve + replay engine
+│   ├── milp_fullyear_cases.ipynb      #   C0-C3 runner notebook
+│   ├── milp_figures_fullyear.py       #   7 thesis figures generator
+│   ├── milp_v10_cases.ipynb           #   Legacy 8-case repday runner
+│   ├── milp_v10_bridge_comparison.ipynb #  Legacy bridge comparison
+│   └── milp_figures.ipynb             #   Legacy figures
 ├── notebooks_experiments/              # Experiment notebooks
-│   ├── nwp_contribution.ipynb         #   NWP ablation study
-│   ├── pieter_comparison.ipynb        #   Comparison with Pieter's RNN-LSTM
-│   └── thesis_figures.ipynb           #   Forecast thesis figures
-├── notebooks/                         # Original iteration notebooks (archived)
-├── pipeline_outputs/                  # Forecast pipeline artifacts (gitignored)
-├── bridge_outputs/                    # Bridge v7 outputs (gitignored)
-├── bridge_outputs_v1/                 # Bridge v1 outputs (gitignored)
-├── milp_outputs/                      # MILP v10 results & figures (gitignored)
-├── docs/figures/                      # Thesis figures (PNG, tracked in git)
-├── Project_Archive_Prediction_Final/  # Harry's original code & data (reference)
+├── pipeline_outputs/                  # Forecast pipeline artifacts
+├── bridge_outputs_fullyear/           # Full-year bridge outputs (current)
+├── bridge_outputs/                    # Legacy bridge v7 outputs
+├── milp_outputs/                      # MILP results & figures
+├── docs/figures/                      # Thesis figures
 └── README.md
 ```
 
@@ -305,11 +297,13 @@ Harry-PV/
 | `split_manifest.parquet` | Chronological split record |
 | `forecast_ghi_quantiles_daily_base_raw.parquet` | Raw XGBQ 19Q (before CQR) |
 | `forecast_ghi_quantiles_daily.parquet` | Official CQR-calibrated 19Q |
-| `load_deterministic_hourly.parquet` | Deterministic campus load profile |
+| `pv_point_forecast_caseyear.parquet` | Deterministic PV from GHI Q50 (S5 artifact) |
+| `load_deterministic_hourly.parquet` | Deterministic campus load profile (reference) |
 | `scenarios_ghi_raw_N.parquet` | Raw stochastic GHI trajectories |
 | `scenarios_joint_ghi_load_raw_N.parquet` | Joint-compatible raw GHI+Load |
 | `scenarios_joint_pv_load_raw_N.parquet` | After GHI→PV conversion |
-| `scenarios_joint_pv_load_reduced_K.parquet` | Bridge-ready reduced PV scenarios |
+| `scenarios_joint_pv_load_reduced_K.parquet` | Reduced PV scenarios (with load) |
+| `pv_scenarios_reduced_caseyear.parquet` | PV-only reduced scenarios (Bridge-ready) |
 | `qa_report.json` | QA summary |
 | `run_metadata.json` | Reproducibility metadata |
 

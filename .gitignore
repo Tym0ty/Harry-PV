@@ -6,6 +6,7 @@ data/
 pipeline_outputs/
 bridge_outputs/
 bridge_outputs_v1/
+bridge_outputs_fullyear/
 milp_outputs/
 
 # Python

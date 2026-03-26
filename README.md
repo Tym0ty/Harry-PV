@@ -203,41 +203,42 @@ Key features:
 
 | Case | Total AEC (M NTD) | BESS P (kW) | BESS E (kWh) | E/P | CC (kW) | RE% | Solve (s) |
 |------|-------------------|-------------|--------------|-----|---------|-----|-----------|
-| C0 | 95.56 | 1,227 | 7,733 | 6.3 | 3,195 | 15.0 | 12.0 |
+| C0 | 95.34 | 1,216 | 7,622 | 6.3 | 3,181 | 15.1 | 13.1 |
 | C1 | 95.35 | 1,319 | 9,616 | 7.3 | 3,116 | 15.9 | 32.4 |
-| C2 | 100.95 | 1,287 | 8,286 | 6.4 | 3,331 | 14.5 | 11.1 |
-| C3 | 100.70 | 1,391 | 10,356 | 7.4 | 3,262 | 15.4 | 31.0 |
+| C2 | 100.73 | 1,283 | 8,266 | 6.4 | 3,323 | 14.6 | 12.5 |
+| C3 | 100.70 | 1,391 | 10,356 | 7.4 | 3,262 | 15.4 | 30.2 |
 
 ### Replay Results (Truth Data)
 
 | Case | Solve (M) | Replay (M) | Gap | Over-Contract (M) | Over Months | Worst Month (M) | RE% |
 |------|-----------|------------|-----|--------------------|-------------|-----------------|-----|
-| C0 | 95.56 | 95.77 | +0.2% | 0.28 | 4 | 10.52 | 14.9 |
+| C0 | 95.34 | 95.77 | +0.4% | 0.32 | 4 | 10.54 | 14.9 |
 | C1 | 95.35 | 95.95 | +0.6% | 0.20 | 3 | 10.30 | 14.9 |
-| C2 | 100.95 | 95.93 | −5.0% | 0.09 | 2 | 10.42 | 14.9 |
+| C2 | 100.73 | 95.92 | −4.8% | 0.09 | 2 | 10.42 | 14.9 |
 | C3 | 100.70 | 96.16 | −4.5% | 0.02 | 1 | 10.17 | 14.9 |
 
 ### Key Findings
 
 **Does probabilistic PV outperform deterministic?**
 
-C1 (probabilistic) is actually **cheaper in solve cost** than C0 (deterministic): 95.35M vs 95.56M (−0.22%). With the updated PVWatts-based deterministic PV (from the S5 artifact), the deterministic forecast is more realistic, and the probabilistic approach provides both **lower design cost** and **better risk management**:
+C0 and C1 have nearly identical solve costs (95.34M vs 95.35M), but they produce **very different designs** — and the probabilistic design delivers **significantly better risk management** when validated against truth:
 
 | Metric | C0 (Det) | C1 (Prob) | C1 Advantage |
 |--------|----------|-----------|--------------|
-| Solve cost (design) | 95.56M | 95.35M | −0.22% cheaper |
+| Solve cost (design) | 95.34M | 95.35M | ~equal |
 | Replay cost (truth) | 95.77M | 95.95M | +0.19% |
 | Over-contract months | 4 | 3 | 25% fewer |
-| Worst-month bill | 10.52M | 10.30M | −2.1% |
-| Solve-to-replay gap | +0.2% | +0.6% | Both small |
-| Over-contract fees | 0.28M | 0.20M | −29% |
-| BESS investment | 1,227 kW / 7,733 kWh | 1,319 kW / 9,616 kWh | +24% E_B (hedging) |
+| Worst-month bill | 10.54M | 10.30M | −2.3% |
+| Solve-to-replay gap | +0.4% | +0.6% | Both small |
+| Over-contract fees | 0.32M | 0.20M | −37.5% |
+| BESS sizing | 1,216 kW / 7,622 kWh | 1,319 kW / 9,616 kWh | +26% E_B (hedging) |
+| Contract capacity | 3,181 kW | 3,116 kW | −2.0% lower |
 
-The probabilistic design invests more in BESS energy capacity as a hedge, which pays off with fewer over-contract events and lower worst-month bills. The marginal replay cost difference (0.18M) is negligible compared to the operational risk reduction.
+The probabilistic design invests more in BESS energy capacity as a hedge against PV uncertainty, while choosing a lower contract capacity. This pays off with fewer over-contract events (3 vs 4 months) and lower worst-month bills (10.30M vs 10.54M). The marginal replay cost difference (0.18M, or 0.19%) is negligible compared to the operational risk reduction.
 
 **Load perturbation effect:**
 
-Under perturbed load stress, the pattern is stronger — C3 achieves the best risk profile of all cases (only 1 over-contract month, lowest worst-month bill at 10.17M) while adding just +0.23% cost vs C2. The perturbation stress (billing +5%, non-billing +2%) causes the solve to over-estimate costs by 4–5%, creating a conservative design buffer.
+Under perturbed load stress, the pattern is even stronger — C3 achieves the best risk profile of all cases (only 1 over-contract month, lowest worst-month bill at 10.17M) while adding just +0.25% cost vs C2. The perturbation stress (billing +5%, non-billing +2%) causes the solve to over-estimate costs by 4–5%, creating a conservative design buffer.
 
 ### MILP Configuration
 

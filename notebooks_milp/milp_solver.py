@@ -114,13 +114,12 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
     E_daystart = m.addVars(day_indices, lb=0, name="Eds")
     E_g_daystart = m.addVars(day_indices, lb=0, name="Egds")
 
-    # Monthly demand proxy: Dmax(month, scenario)
-    idx_ms = [(mo, s) for mo in all_months for s in range(n_scenarios)]
-    Dmax = m.addVars(idx_ms, lb=0, name="Dmax")
+    # Monthly demand proxy: robust (worst-case across all scenarios)
+    Dmax = m.addVars(all_months, lb=0, name="Dmax")
 
-    # Over-contract segments
-    O1 = m.addVars(idx_ms, lb=0, name="O1")
-    O2 = m.addVars(idx_ms, lb=0, name="O2")
+    # Over-contract segments (scenario-independent — robust formulation)
+    O1 = m.addVars(all_months, lb=0, name="O1")
+    O2 = m.addVars(all_months, lb=0, name="O2")
 
     # T-REC gap filler (per scenario)
     E_TREC = m.addVars(range(n_scenarios), lb=0, name="Etrec")
@@ -185,10 +184,10 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
                 m.addConstr(E_soc[key] <= soc_max * E_B,
                             name=f"C5hi_{di}_{s_idx}_{t}")
 
-                # C8: Monthly demand proxy
+                # C8: Monthly demand proxy (robust: worst-case across scenarios)
                 mo = dd['month_id']
                 m.addConstr(
-                    Dmax[mo, s_idx] >= kappa * (P_grid_load[key] + P_grid_ch[key]),
+                    Dmax[mo] >= kappa * (P_grid_load[key] + P_grid_ch[key]),
                     name=f"C8_{di}_{s_idx}_{t}")
 
                 # C11: Green SOC accounting
@@ -271,13 +270,12 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
             E_soc[last_di, s, n_hours - 1] <= soc_init * E_B + eps_term * E_B,
             name=f"C7hi_{s}")
 
-    # C9: Over-contract linearization
+    # C9: Over-contract linearization (robust — scenario-independent)
     for mo in all_months:
-        for s in range(n_scenarios):
-            m.addConstr(Dmax[mo, s] - CC == O1[mo, s] + O2[mo, s],
-                        name=f"C9a_{mo}_{s}")
-            m.addConstr(O1[mo, s] <= 0.10 * CC,
-                        name=f"C9b_{mo}_{s}")
+        m.addConstr(Dmax[mo] - CC == O1[mo] + O2[mo],
+                    name=f"C9a_{mo}")
+        m.addConstr(O1[mo] <= 0.10 * CC,
+                    name=f"C9b_{mo}")
 
     # C10: RE20 and T-REC gap filler
     # E_RE = Σ (P_pv_load + P_dis_g) over year
@@ -319,16 +317,10 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
     AEC_basic = gp.quicksum(
         get_monthly_basic_charge(mo, CFG) * CC for mo in all_months)
 
-    # AEC_over: over-contract penalties
-    if not is_prob:
-        AEC_over = gp.quicksum(
-            get_monthly_basic_charge(mo, CFG) * (oc_m1 * O1[mo, 0] + oc_m2 * O2[mo, 0])
-            for mo in all_months)
-    else:
-        AEC_over = gp.quicksum(
-            day_data[day_indices[0]]['scenarios'][s]['prob'] *
-            get_monthly_basic_charge(mo, CFG) * (oc_m1 * O1[mo, s] + oc_m2 * O2[mo, s])
-            for mo in all_months for s in range(n_scenarios))
+    # AEC_over: over-contract penalties (robust — worst-case across scenarios)
+    AEC_over = gp.quicksum(
+        get_monthly_basic_charge(mo, CFG) * (oc_m1 * O1[mo] + oc_m2 * O2[mo])
+        for mo in all_months)
 
     # AEC_green: T-REC gap filler cost
     if not is_prob:

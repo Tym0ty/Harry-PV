@@ -17,7 +17,7 @@ from gurobipy import GRB
 from milp_common import get_monthly_basic_charge
 
 
-def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_ub=None, pb_lb=None, eb_ub=None):
+def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_ub=None, cc_lb=None, pb_lb=None, pb_ub=None, eb_ub=None, eb_lb=None, mip_gap=None):
     """Build and solve the full-year MILP for one case.
 
     Args:
@@ -74,20 +74,29 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_u
     # ── Model ────────────────────────────────────────────────
     m = gp.Model(f"MILP_{case_id}")
     m.Params.TimeLimit = CFG['time_limit']
-    m.Params.MIPGap = CFG['mip_gap']
+    m.Params.MIPGap = mip_gap if mip_gap is not None else CFG['mip_gap']
     m.Params.OutputFlag = 1
 
     # ── Stage 1: Sizing variables ────────────────────────────
-    CC = m.addVar(lb=0, name="CC")          # contract capacity (kW)
+    cc_lower = cc_lb if cc_lb is not None else 0
+    CC = m.addVar(lb=cc_lower, name="CC")          # contract capacity (kW)
     if cc_ub is not None:
         CC.ub = cc_ub
         print(f"  CC upper bound set to {cc_ub:.1f} kW")
+    if cc_lb is not None:
+        print(f"  CC lower bound set to {cc_lb:.1f} kW")
     pb_lower = pb_lb if pb_lb is not None else 0
-    P_B = m.addVar(lb=pb_lower, ub=CFG['bess_p_max_kw'], name="P_B")    # BESS power
+    pb_upper = pb_ub if pb_ub is not None else CFG['bess_p_max_kw']
+    P_B = m.addVar(lb=pb_lower, ub=pb_upper, name="P_B")    # BESS power
     if pb_lb is not None:
         print(f"  P_B lower bound set to {pb_lb:.1f} kW")
+    if pb_ub is not None:
+        print(f"  P_B upper bound set to {pb_ub:.1f} kW")
+    eb_lower = eb_lb if eb_lb is not None else 0
     eb_upper = eb_ub if eb_ub is not None else CFG['bess_e_max_kwh']
-    E_B = m.addVar(lb=0, ub=eb_upper, name="E_B")   # BESS energy
+    E_B = m.addVar(lb=eb_lower, ub=eb_upper, name="E_B")   # BESS energy
+    if eb_lb is not None:
+        print(f"  E_B lower bound set to {eb_lb:.1f} kWh")
     if eb_ub is not None:
         print(f"  E_B upper bound set to {eb_ub:.1f} kWh")
 

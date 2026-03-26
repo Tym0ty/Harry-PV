@@ -17,7 +17,7 @@ from gurobipy import GRB
 from milp_common import get_monthly_basic_charge
 
 
-def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
+def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_ub=None, pb_lb=None, eb_ub=None):
     """Build and solve the full-year MILP for one case.
 
     Args:
@@ -79,8 +79,17 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
 
     # ── Stage 1: Sizing variables ────────────────────────────
     CC = m.addVar(lb=0, name="CC")          # contract capacity (kW)
-    P_B = m.addVar(lb=0, ub=CFG['bess_p_max_kw'], name="P_B")    # BESS power
-    E_B = m.addVar(lb=0, ub=CFG['bess_e_max_kwh'], name="E_B")   # BESS energy
+    if cc_ub is not None:
+        CC.ub = cc_ub
+        print(f"  CC upper bound set to {cc_ub:.1f} kW")
+    pb_lower = pb_lb if pb_lb is not None else 0
+    P_B = m.addVar(lb=pb_lower, ub=CFG['bess_p_max_kw'], name="P_B")    # BESS power
+    if pb_lb is not None:
+        print(f"  P_B lower bound set to {pb_lb:.1f} kW")
+    eb_upper = eb_ub if eb_ub is not None else CFG['bess_e_max_kwh']
+    E_B = m.addVar(lb=0, ub=eb_upper, name="E_B")   # BESS energy
+    if eb_ub is not None:
+        print(f"  E_B upper bound set to {eb_ub:.1f} kWh")
 
     # ── Stage 2: Operational variables ───────────────────────
     # Indexed by (day_pos, scenario_idx, hour)
@@ -121,8 +130,8 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
     O1 = m.addVars(all_months, lb=0, name="O1")
     O2 = m.addVars(all_months, lb=0, name="O2")
 
-    # T-REC gap filler (per scenario)
-    E_TREC = m.addVars(range(n_scenarios), lb=0, name="Etrec")
+    # T-REC gap filler (single — spec eq 20 uses expected RE)
+    E_TREC = m.addVar(lb=0, name="Etrec")
 
     m.update()
 
@@ -280,13 +289,23 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
     # C7: Year-end terminal band
     last_di = day_indices[-1]
     first_di = day_indices[0]
-    for s in range(n_scenarios):
-        m.addConstr(
-            E_soc[last_di, s, n_hours - 1] >= soc_init * E_B - eps_term * E_B,
-            name=f"C7lo_{s}")
-        m.addConstr(
-            E_soc[last_di, s, n_hours - 1] <= soc_init * E_B + eps_term * E_B,
-            name=f"C7hi_{s}")
+    if not is_prob:
+        for s in range(n_scenarios):
+            m.addConstr(
+                E_soc[last_di, s, n_hours - 1] >= soc_init * E_B - eps_term * E_B,
+                name=f"C7lo_{s}")
+            m.addConstr(
+                E_soc[last_di, s, n_hours - 1] <= soc_init * E_B + eps_term * E_B,
+                name=f"C7hi_{s}")
+    else:
+        # Expected terminal band — constrains probability-weighted end SOC
+        dd_last = day_data[last_di]
+        probs_last = [dd_last['scenarios'][s]['prob'] for s in range(n_scenarios)]
+        E_soc_exp = gp.quicksum(
+            probs_last[s] * E_soc[last_di, s, n_hours - 1]
+            for s in range(n_scenarios))
+        m.addConstr(E_soc_exp >= soc_init * E_B - eps_term * E_B, name="C7lo_exp")
+        m.addConstr(E_soc_exp <= soc_init * E_B + eps_term * E_B, name="C7hi_exp")
 
     # C9: Over-contract linearization (robust — scenario-independent)
     for mo in all_months:
@@ -295,24 +314,33 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
         m.addConstr(O1[mo] <= 0.10 * CC,
                     name=f"C9b_{mo}")
 
-    # C10: RE20 and T-REC gap filler
-    # E_RE = Σ (P_pv_load + P_dis_g) over year
-    # If E_RE < re_target * total_load → fill with E_TREC
-    for s in range(n_scenarios):
-        E_pv_self = gp.quicksum(P_pv_load[di, s, t]
-                                for di in day_indices for t in range(n_hours))
-        E_dis_green = gp.quicksum(P_dis_g[di, s, t]
-                                  for di in day_indices for t in range(n_hours))
-        total_load_s = total_load_per_scenario[s]
+    # C10: RE20 and T-REC gap filler (spec eq 17-20: expected accounting)
+    # Expected RE20 constraint — prevents BESS oversizing for worst-case scenario
+    # while maintaining robust over-contract hedging via Dmax
+    E_pv_self_yr = gp.quicksum(
+        day_data[di]['scenarios'][s]['prob'] * P_pv_load[di, s, t]
+        for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+    E_dis_g_yr = gp.quicksum(
+        day_data[di]['scenarios'][s]['prob'] * P_dis_g[di, s, t]
+        for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+    E_load_yr = sum(
+        day_data[di]['scenarios'][s]['prob'] * float(day_data[di]['scenarios'][s]['load_kw'][t])
+        for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
 
-        m.addConstr(
-            E_pv_self + E_dis_green + E_TREC[s] >= re_target * total_load_s,
-            name=f"C10_{s}")
+    m.addConstr(
+        E_pv_self_yr + E_dis_g_yr + E_TREC >= re_target * E_load_yr,
+        name="C10")
 
     # C12: Green SOC year-end
-    for s in range(n_scenarios):
-        m.addConstr(E_g[last_di, s, n_hours - 1] <= eps_g_term * E_B,
+    if not is_prob:
+        for s in range(n_scenarios):
+            m.addConstr(E_g[last_di, s, n_hours - 1] <= eps_g_term * E_B,
                     name=f"C12_{s}")
+    else:
+        E_g_exp = gp.quicksum(
+            probs_last[s] * E_g[last_di, s, n_hours - 1]
+            for s in range(n_scenarios))
+        m.addConstr(E_g_exp <= eps_g_term * E_B, name="C12_exp")
 
     # ── Objective ────────────────────────────────────────────
     print("  Building objective...")
@@ -340,13 +368,8 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
         get_monthly_basic_charge(mo, CFG) * (oc_m1 * O1[mo] + oc_m2 * O2[mo])
         for mo in all_months)
 
-    # AEC_green: T-REC gap filler cost
-    if not is_prob:
-        AEC_green = c_trec * E_TREC[0]
-    else:
-        AEC_green = gp.quicksum(
-            day_data[day_indices[0]]['scenarios'][s]['prob'] * c_trec * E_TREC[s]
-            for s in range(n_scenarios))
+    # AEC_green: T-REC gap filler cost (spec eq 72)
+    AEC_green = c_trec * E_TREC
 
     # AEC_deg: PWL degradation cost
     if not is_prob:

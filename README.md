@@ -180,6 +180,16 @@ Hexbin density scatter plot of predicted (P50 median) vs actual GHI for the full
 
 Full-year direct solve MILP for campus microgrid sizing (per FF0326Harry_MILP_Engineering_Spec_FullYear_Formal_vfinal). Replaces the previous representative-day approach with 365-day chronological solve. PV capacity is **fixed at 2,687 kW**; the MILP optimizes **BESS power/energy** and **contract capacity**.
 
+### End-to-End Pipeline Runtime
+
+| Stage | Time | Details |
+|-------|------|---------|
+| Forecast (V2 tuned) | 6.4 min | S4a tuning 5.5 min, S6 scenarios (365d × 500) 31s, S7 GHI→PV 11s |
+| Bridge | 3s | Full-year data assembly + 4 ingest packages |
+| MILP Solve (4 cases) | 1.5 min | C0: 13s, C1: 32s, C2: 13s, C3: 30s |
+| MILP Replay (4 cases) | ~20s | Fixed-design replay on truth data |
+| **Total** | **~8.3 min** | Apple M4, Gurobi 13.0.1 academic license |
+
 Key features:
 - **Full-year direct solve**: 365 days × 24 hours (no representative-day compression)
 - **P_grid split**: P_grid_load + P_grid_ch (grid can charge battery separately)

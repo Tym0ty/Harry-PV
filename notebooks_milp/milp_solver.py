@@ -114,10 +114,10 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
     E_daystart = m.addVars(day_indices, lb=0, name="Eds")
     E_g_daystart = m.addVars(day_indices, lb=0, name="Egds")
 
-    # Monthly demand proxy: robust (worst-case across all scenarios)
+    # Monthly demand proxy: expected-value for prob, direct for det
     Dmax = m.addVars(all_months, lb=0, name="Dmax")
 
-    # Over-contract segments (scenario-independent — robust formulation)
+    # Over-contract segments
     O1 = m.addVars(all_months, lb=0, name="O1")
     O2 = m.addVars(all_months, lb=0, name="O2")
 
@@ -184,11 +184,14 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
                 m.addConstr(E_soc[key] <= soc_max * E_B,
                             name=f"C5hi_{di}_{s_idx}_{t}")
 
-                # C8: Monthly demand proxy (robust: worst-case across scenarios)
-                mo = dd['month_id']
-                m.addConstr(
-                    Dmax[mo] >= kappa * (P_grid_load[key] + P_grid_ch[key]),
-                    name=f"C8_{di}_{s_idx}_{t}")
+                # C8: Monthly demand proxy
+                # For deterministic: direct constraint (single scenario)
+                # For probabilistic: skip here, add expected-value below
+                if not is_prob:
+                    mo = dd['month_id']
+                    m.addConstr(
+                        Dmax[mo] >= kappa * (P_grid_load[key] + P_grid_ch[key]),
+                        name=f"C8_{di}_{s_idx}_{t}")
 
                 # C11: Green SOC accounting
                 # P_ch_g <= P_pv_ch (green charging only from PV)
@@ -225,6 +228,21 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
                     m.addConstr(
                         e_dis_seg[di, s_idx, t, k] <= seg_width * E_B,
                         name=f"C13b_{di}_{s_idx}_{t}_{k}")
+
+    # C8 (probabilistic): Expected-value demand proxy
+    # Dmax[mo] >= kappa * Σ_ω π_ω * (P_grid_load + P_grid_ch) per (day, hour)
+    if is_prob:
+        print("  Adding expected-value demand proxy (C8)...")
+        for di in day_indices:
+            dd = day_data[di]
+            mo = dd['month_id']
+            probs = [dd['scenarios'][s]['prob'] for s in range(n_scenarios)]
+            for t in range(n_hours):
+                m.addConstr(
+                    Dmax[mo] >= kappa * gp.quicksum(
+                        probs[s] * (P_grid_load[di, s, t] + P_grid_ch[di, s, t])
+                        for s in range(n_scenarios)),
+                    name=f"C8exp_{di}_{t}")
 
     # C6: Cross-day SOC linkage
     print("  Adding cross-day SOC linkage...")
@@ -317,7 +335,7 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0"):
     AEC_basic = gp.quicksum(
         get_monthly_basic_charge(mo, CFG) * CC for mo in all_months)
 
-    # AEC_over: over-contract penalties (robust — worst-case across scenarios)
+    # AEC_over: over-contract penalties (expected-value demand proxy for prob)
     AEC_over = gp.quicksum(
         get_monthly_basic_charge(mo, CFG) * (oc_m1 * O1[mo] + oc_m2 * O2[mo])
         for mo in all_months)

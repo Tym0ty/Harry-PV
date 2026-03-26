@@ -216,38 +216,39 @@ Key features:
 
 | Case | Total AEC (M NTD) | BESS P (kW) | BESS E (kWh) | E/P | CC (kW) | RE% | Solve (s) |
 |------|-------------------|-------------|--------------|-----|---------|-----|-----------|
-| C0 | 95.34 | 1,216 | 7,622 | 6.3 | 3,181 | 15.1 | 14.8 |
-| C1 | 96.10 | 1,157 | 7,622 | 6.6 | 3,181 | 14.7 | 30.3 |
-| C2 | 100.73 | 1,283 | 8,266 | 6.4 | 3,323 | 14.6 | 13.9 |
-| C3 | 101.50 | 1,236 | 8,266 | 6.7 | 3,323 | 14.2 | 28.7 |
+| C0 | 95.34 | 1,216 | 7,622 | 6.3 | 3,181 | 20.0 | 13.0 |
+| C1 | 95.77 | 1,220 | 7,622 | 6.2 | 3,169 | 20.0 | 29.3 |
+| C2 | 100.73 | 1,283 | 8,266 | 6.4 | 3,323 | 20.0 | 12.6 |
+| C3 | 101.16 | 1,282 | 8,174 | 6.4 | 3,306 | 20.0 | 26.1 |
 
 ### Replay Results (Truth Data)
 
 | Case | Solve (M) | Replay (M) | Gap | Over-Contract (M) | Over Months | Worst Month (M) | RE% |
 |------|-----------|------------|-----|--------------------|-------------|-----------------|-----|
 | C0 | 95.34 | 95.77 | +0.5% | 0.32 | 4 | 10.54 | 14.9 |
-| C1 | 96.10 | **95.76** | −0.4% | 0.35 | 4 | 10.54 | 14.9 |
+| C1 | 95.77 | **95.77** | 0.0% | 0.34 | 4 | 10.55 | 14.9 |
 | C2 | 100.73 | 95.92 | −4.8% | 0.09 | 2 | 10.42 | 14.9 |
-| C3 | 101.50 | **95.89** | −5.5% | 0.09 | 2 | 10.42 | 14.9 |
+| C3 | 101.16 | **95.90** | −5.2% | 0.12 | 2 | 10.44 | 14.9 |
 
 ### Key Findings
 
 **Does probabilistic PV outperform deterministic?**
 
-Yes — the probabilistic design achieves **lower total cost** when validated against truth data:
+The probabilistic design matches deterministic total cost when validated against truth data, while achieving a **tighter solve-to-replay gap** (0.0% vs +0.5%):
 
-| Metric | C0 (Det) | C1 (Prob) | C1 Advantage |
-|--------|----------|-----------|--------------|
-| Replay cost (truth) | 95.77M | **95.76M** | **−0.01M (prob cheaper)** |
-| BESS investment | 7.08M | 7.01M | **−1.0%** (smaller P_B) |
-| Energy cost | 73.99M | 74.04M | +0.07% |
-| Over-contract fees | 0.32M | 0.35M | +0.03M |
-| BESS sizing | 1,216 kW / 7,622 kWh | 1,157 kW / 7,622 kWh | **−4.9% P_B** |
-| Contract capacity | 3,181 kW | 3,181 kW | equal |
+| Metric | C0 (Det) | C1 (Prob) | Comparison |
+|--------|----------|-----------|------------|
+| Replay cost (truth) | 95.77M | **95.77M** | **Equal** |
+| Solve-to-replay gap | +0.5% | 0.0% | **Prob more accurate** |
+| BESS investment | 7.08M | 7.09M | +0.01M |
+| Energy cost | 73.99M | 74.00M | +0.01M |
+| Over-contract fees | 0.32M | 0.34M | +0.02M |
+| BESS sizing | 1,216 kW / 7,622 kWh | 1,220 kW / 7,622 kWh | Similar |
+| Contract capacity | 3,181 kW | 3,169 kW | **−0.4%** |
 
-The key mechanism: **scenario-aware BESS power optimization**. By constraining the probabilistic case to the same CC and E_B envelope as deterministic (same underlying load means no higher capacity is needed), the optimizer leverages PV scenario information to find that **less BESS power** is sufficient. The expected RE20 and expected terminal band formulations prevent worst-case-driven oversizing, while robust over-contract (Dmax across all scenarios) still provides demand hedging.
+The key mechanism: **expected-value constraint formulation**. C10 (RE ≥ 20%), C7 (terminal SOC band), and C12 (green terminal) use probability-weighted expected values instead of per-scenario worst-case. This prevents worst-case-driven oversizing while robust over-contract (Dmax across all scenarios) still provides demand hedging. The probabilistic case is also bounded by deterministic CC and E_B to prevent over-investment.
 
-The probabilistic design achieves lower total cost by investing less in BESS power (−59 kW, saving 0.07M/yr annualized) while maintaining the same contract capacity and energy storage. This demonstrates that **probabilistic PV forecasting enables more efficient BESS sizing** — the optimizer uses scenario diversity to right-size the battery rather than over-provisioning for a single deterministic path.
+Under **load perturbation**, the probabilistic advantage is clearer: C3 replay (95.90M) beats C2 replay (95.92M) by 0.02M, with smaller BESS and lower contract capacity. The solve RE% now correctly reports ≥ 20% for all cases (including T-REC purchases), while replay RE% shows the actual on-site renewable fraction (14.9%).
 
 ### Dispatch Comparison: Deterministic vs Probabilistic
 
@@ -269,7 +270,7 @@ Key behavioral differences:
 
 **Load perturbation effect:**
 
-Under perturbed load stress, the probabilistic advantage is amplified — C3 replay cost is **95.89M vs C2's 95.92M** (−0.03M). The probabilistic optimizer finds P_B = 1,236 kW vs C2's 1,283 kW (−3.7%), saving on BESS power investment while achieving the same over-contract performance (2 months each).
+Under perturbed load stress, the probabilistic advantage is clearer — C3 replay cost is **95.90M vs C2's 95.92M** (−0.02M). The probabilistic optimizer finds similar BESS sizing while achieving the same over-contract performance (2 months each).
 
 ### MILP Configuration
 

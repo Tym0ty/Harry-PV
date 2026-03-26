@@ -408,25 +408,27 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_u
         deg_val = AEC_deg.getValue()
         obj_val = m.ObjVal
 
-        # RE percentage
+        # RE percentage (including T-REC — constraint C10 guarantees ≥ 20%)
+        trec_val = E_TREC.X
         if not is_prob:
             pv_self = sum(P_pv_load[di, 0, t].X
                          for di in day_indices for t in range(n_hours))
             dis_green = sum(P_dis_g[di, 0, t].X
                            for di in day_indices for t in range(n_hours))
             total_load = total_load_per_scenario[0]
-            re_pct = (pv_self + dis_green) / total_load * 100 if total_load > 0 else 0
+            re_pct = (pv_self + dis_green + trec_val) / total_load * 100 if total_load > 0 else 0
         else:
-            re_pct_list = []
-            for s in range(n_scenarios):
-                pv_self = sum(P_pv_load[di, s, t].X
-                             for di in day_indices for t in range(n_hours))
-                dis_green = sum(P_dis_g[di, s, t].X
-                               for di in day_indices for t in range(n_hours))
-                total_load = total_load_per_scenario[s]
-                prob = day_data[day_indices[0]]['scenarios'][s]['prob']
-                re_pct_list.append(prob * (pv_self + dis_green) / total_load * 100)
-            re_pct = sum(re_pct_list)
+            # Expected RE across scenarios (matches C10 expected formulation)
+            pv_self_exp = sum(
+                day_data[di]['scenarios'][s]['prob'] * P_pv_load[di, s, t].X
+                for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+            dis_green_exp = sum(
+                day_data[di]['scenarios'][s]['prob'] * P_dis_g[di, s, t].X
+                for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+            total_load = sum(
+                day_data[di]['scenarios'][s]['prob'] * total_load_per_scenario[s]
+                for s in range(n_scenarios))
+            re_pct = (pv_self_exp + dis_green_exp + trec_val) / total_load * 100 if total_load > 0 else 0
 
         cost_breakdown = {
             'AEC_inv': inv_val,

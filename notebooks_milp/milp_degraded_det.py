@@ -29,7 +29,7 @@ from milp_solver import build_and_solve, replay
 # ── Tuning knob ────────────────────────────────────────────────
 # Over-prediction bias: det forecast inflated by this factor.
 # C0 will over-estimate solar → size CC too low → over-contract in replay.
-PV_BIAS_FACTOR = 2.00   # 100% over-prediction
+PV_BIAS_FACTOR = 1.32   # 32% over-prediction
 
 
 def degrade_pv(day_data, bias):

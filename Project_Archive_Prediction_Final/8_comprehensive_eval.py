@@ -43,7 +43,7 @@ from pathlib import Path
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 # ── Configuration ────────────────────────────────────────────────────
-CAL_FILE = Path("pipeline_outputs/forecast_ghi_quantiles_daily.parquet")
+CAL_FILE = Path("pipeline_outputs/forecast_ghi_quantiles_daily_normalized_cqr.parquet")
 RAW_FILE = Path("pipeline_outputs/forecast_ghi_quantiles_daily_base_raw.parquet")
 OUT_DIR  = Path("Project_Archive_Prediction_Final/reports/comprehensive_eval")
 OUT_DIR.mkdir(parents=True, exist_ok=True)

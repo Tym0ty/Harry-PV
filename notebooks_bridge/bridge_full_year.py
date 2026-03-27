@@ -34,7 +34,7 @@ SUMMER_END_MD   = (10, 15)
 # Paths
 ROOT        = Path(__file__).resolve().parent.parent
 DATA_CSV    = ROOT / "NTUST_Load_PV.csv"
-SCENARIO_PQ = ROOT / "bridge_outputs" / "scenarios_fullyear_reduced_5.parquet"
+SCENARIO_PQ = ROOT / "pipeline_outputs" / "scenarios_joint_pv_load_reduced_5.parquet"
 PV_DET_PQ   = ROOT / "pipeline_outputs" / "pv_point_forecast_caseyear.parquet"
 OUT_DIR     = ROOT / "bridge_outputs_fullyear"
 

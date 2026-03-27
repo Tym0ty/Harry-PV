@@ -24,110 +24,43 @@ os.chdir(ROOT)
 # ──────────────────────────────────────────────────────────────
 
 def stage0_generate_forecast_artifacts():
-    """Generate pv_point_forecast and pv_scenarios from NTUST_Load_PV.csv.
+    """Link real Gaussian copula pipeline scenarios into bridge_outputs.
 
-    Uses actual PV as basis for deterministic forecast (with slight smoothing),
-    and generates 5 scenarios per day by perturbing the actual PV with
-    realistic variability (lognormal noise scaled by hour).
+    Uses the official pipeline outputs:
+    - pipeline_outputs/pv_point_forecast_caseyear.parquet (deterministic PV)
+    - pipeline_outputs/scenarios_joint_pv_load_reduced_5.parquet (5 k-medoids scenarios)
+
+    These come from the CQR-calibrated 19-quantile Gaussian copula (S6-S8)
+    with temporal correlation decay=0.3, 500 raw → 5 k-medoids reduced.
     """
     print("=" * 60)
-    print("STAGE 0: Generate Forecast Artifacts")
+    print("STAGE 0: Link Forecast Artifacts")
     print("=" * 60)
 
-    CASE_YEAR_START = pd.Timestamp("2024-11-01")
-    CASE_YEAR_END   = pd.Timestamp("2025-10-31")
-    PV_REF_KW  = 50.0
-    PV_FIXED_KW = 2687.0
-    NTUST_PV_KW = 379.0
-
-    # Load NTUST data
-    ntust = pd.read_csv(ROOT / "NTUST_Load_PV.csv").dropna(subset=["Date", "Time"])
-    ntust["Date"] = pd.to_datetime(ntust["Date"])
-    ntust["hour_0"] = ntust["Time"].str[:2].astype(int)
-    print(f"  NTUST rows: {len(ntust)}")
-
-    date_range = pd.date_range(CASE_YEAR_START, CASE_YEAR_END, freq="D")
-
-    # Build actual PV dict (already in kWh at NTUST scale ~379kW)
-    pv_actual = {}  # (date, hour_0) -> kWh
-    for _, row in ntust.iterrows():
-        d = row["Date"]
-        h0 = row["hour_0"]
-        if CASE_YEAR_START <= d <= CASE_YEAR_END + pd.Timedelta(days=1):
-            pv_actual[(d, h0)] = max(0.0, float(row["Solar_kWh"]))
-
-    # ── Deterministic PV point forecast (at 50kW reference) ────
-    # Use actual PV scaled down from NTUST ~379kW to 50kW ref
-    print("  Building deterministic PV point forecast...")
-    pv_point_rows = []
-    for d in date_range:
-        for h0 in range(24):
-            # Target time: the hour starting at h0:00
-            target_time = d + pd.Timedelta(hours=h0)
-            pv_ntust = pv_actual.get((d, h0), 0.0)
-            if h0 == 0:
-                # Check if midnight belongs to previous day
-                pv_ntust = pv_actual.get((d, 0), 0.0)
-
-            # Scale NTUST → 50kW reference
-            pv_50kw = pv_ntust * (PV_REF_KW / NTUST_PV_KW)
-
-            pv_point_rows.append({
-                "target_day_local": d,
-                "target_time_local": target_time,
-                "pv_point_kw": pv_50kw,
-            })
-
-    pv_point_df = pd.DataFrame(pv_point_rows)
-    out_dir = ROOT / "pipeline_outputs"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    pv_point_df.to_parquet(out_dir / "pv_point_forecast_caseyear.parquet", index=False)
-    print(f"  → pv_point_forecast_caseyear.parquet: {len(pv_point_df)} rows")
-
-    # ── Probabilistic PV scenarios (5 per day, at 50kW ref) ────
-    print("  Building probabilistic PV scenarios (5/day)...")
-    rng = np.random.RandomState(42)
-    K = 5
-    scenario_rows = []
-
-    for d in date_range:
-        # Get actual PV profile for this day (24 hours)
-        pv_day = np.array([pv_actual.get((d, h), 0.0) for h in range(24)])
-        pv_day_50 = pv_day * (PV_REF_KW / NTUST_PV_KW)
-
-        # Generate K scenarios with correlated perturbations
-        # Use multiplicative noise: scenario = actual * exp(noise)
-        # Higher variance during midday (when PV is high and uncertain)
-        for k in range(K):
-            # Day-level shift + hour-level noise
-            day_shift = rng.normal(0, 0.15)
-            hour_noise = rng.normal(0, 0.10, size=24)
-
-            pv_scenario = np.zeros(24)
-            for h in range(24):
-                if pv_day_50[h] > 0.1:
-                    mult = np.exp(day_shift + hour_noise[h])
-                    pv_scenario[h] = max(0.0, pv_day_50[h] * mult)
-                else:
-                    pv_scenario[h] = 0.0
-
-            for h in range(24):
-                target_time = d + pd.Timedelta(hours=h)
-                scenario_rows.append({
-                    "target_day_local": d,
-                    "target_time_local": target_time,
-                    "scenario_id": k,
-                    "pv_available_kw": pv_scenario[h],
-                    "probability_pi": 1.0 / K,
-                })
-
-    sc_df = pd.DataFrame(scenario_rows)
-
-    # Save to bridge_outputs (where bridge expects it)
+    pipeline_dir = ROOT / "pipeline_outputs"
     bridge_out = ROOT / "bridge_outputs"
     bridge_out.mkdir(parents=True, exist_ok=True)
+
+    # Check that real pipeline outputs exist
+    pv_det_path = pipeline_dir / "pv_point_forecast_caseyear.parquet"
+    sc_path = pipeline_dir / "scenarios_joint_pv_load_reduced_5.parquet"
+
+    if not pv_det_path.exists() or not sc_path.exists():
+        raise FileNotFoundError(
+            f"Pipeline outputs not found. Run the forecast pipeline first.\n"
+            f"  Expected: {pv_det_path}\n"
+            f"  Expected: {sc_path}"
+        )
+
+    # Copy reduced scenarios to bridge_outputs (where bridge_full_year.py expects them)
+    sc_df = pd.read_parquet(sc_path)
     sc_df.to_parquet(bridge_out / "scenarios_fullyear_reduced_5.parquet", index=False)
-    print(f"  → scenarios_fullyear_reduced_5.parquet: {len(sc_df)} rows")
+
+    pv_det = pd.read_parquet(pv_det_path)
+    print(f"  Det PV: {len(pv_det)} rows")
+    print(f"  Scenarios: {len(sc_df)} rows, {sc_df['scenario_id'].nunique()} scenarios/day")
+    print(f"  Probabilities (day 1): {sc_df[sc_df['target_day_local'] == sc_df['target_day_local'].iloc[0]].groupby('scenario_id')['probability_pi'].first().values}")
+    print(f"  Source: Gaussian copula (19Q CQR, decay=0.3, 500→5 k-medoids)")
 
     return True
 

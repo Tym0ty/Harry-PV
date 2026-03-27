@@ -79,8 +79,9 @@ def load_test(path: Path) -> pd.DataFrame:
     """Load parquet, keep only test split rows."""
     df = pd.read_parquet(path)
     df = df[df["split_name"] == "test"].copy()
-    df["hour"] = df.index.hour
-    df["month"] = df.index.month
+    df["target_time_local"] = pd.to_datetime(df["target_time_local"])
+    df["hour"] = df["target_time_local"].dt.hour
+    df["month"] = df["target_time_local"].dt.month
     df["season"] = df["month"].map(SEASON_MAP)
     return df
 
@@ -390,7 +391,7 @@ def fig_seasonal(df_season: pd.DataFrame):
 def _pick_representative_days(df: pd.DataFrame):
     """Pick 1 clear, 1 mixed, 1 overcast day from daylight hours."""
     dl = df[daylight_mask(df)].copy()
-    daily = dl.groupby(dl.index.date).agg(
+    daily = dl.groupby(dl["target_time_local"].dt.date).agg(
         obs_mean=(TARGET_COL, "mean"),
         clear_mean=("ghi_clear_wm2", "mean"),
     )
@@ -420,9 +421,9 @@ def fig_fan_chart(df_cal: pd.DataFrame):
         ("q0.25", "q0.75", 0.35, "q25-q75"),
     ]
     for ax, (day, label) in zip(axes, days):
-        mask = df_cal.index.date == day
-        sub = df_cal[mask].sort_index()
-        hours = sub.index.hour
+        mask = df_cal["target_time_local"].dt.date == day
+        sub = df_cal[mask].sort_values("target_time_local")
+        hours = sub["target_time_local"].dt.hour
         y = sub[TARGET_COL].values
         for lo, hi, alpha, blabel in band_specs:
             ax.fill_between(hours, sub[lo].values, sub[hi].values,

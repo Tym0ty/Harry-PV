@@ -160,7 +160,7 @@ def run():
     print(f"{'='*60}")
 
     sizing_base = {'CC': 5000.0, 'P_B': 0.0, 'E_B': 0.0}
-    rr_base = replay(sizing_base, truth_df_raw, calendar_df, CFG,
+    rr_base = replay(sizing_base, truth_df, calendar_df, CFG,
                      case_id='BASE', no_re20=True)
 
     # Construct a minimal "r" dict for BASE (no optimization was run)

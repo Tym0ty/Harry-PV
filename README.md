@@ -419,9 +419,9 @@ Results from `notebooks_milp/milp_batch_no_re20.py`. RE20 constraint excluded; a
 | C2 | 88.64 | 9.59 | 0.11 | 0.00 | 1.21 | 4.34 | **103.90** | 2.7 | 2 | 12.23 |
 | C3 | 88.77 | 9.60 | **0.12** | 0.00 | 1.18 | **4.23** | **103.89** | 2.7 | 2 | 12.25 |
 | PI | 89.03 | 9.04 | 0.58 | 0.00 | 1.12 | 4.04 | **103.80** | 2.7 | 4 | 12.34 |
-| BASE | 82.86 | 11.71 | 0.00 | 0.00 | 0.00 | 0.00 | **94.57** | 14.6 | 0 | 11.52 |
+| BASE | 93.39 | 11.71 | 0.00 | 0.00 | 0.00 | 0.00 | **105.11** | 2.8 | 0 | 12.78 |
 
-*BASE uses old (unscaled) truth data; all other cases use 515 kW-scaled PV truth.*
+*All cases use 515 kW-scaled PV truth with old Taipower meter readings as load.*
 
 #### Gap to PI
 
@@ -432,14 +432,14 @@ Results from `notebooks_milp/milp_batch_no_re20.py`. RE20 constraint excluded; a
 | C2 | 103.90 | +0.10M |
 | C3 | 103.89 | +0.09M |
 | PI | 103.80 | — |
-| BASE | 94.57 | −9.23M |
+| BASE | 105.11 | +1.31M |
 
 #### Key Findings
 
-- **Baseline is cheapest at 94.57M**: With only 515 kW PV, BESS investment (3.9–4.3M/yr) is not offset by energy savings. The school status quo with a large contract (CC=5,000 kW) and no BESS achieves lower total cost because it avoids all capital expenditure. This confirms that BESS economic viability is strongly dependent on PV scale — the break-even point is between 515 kW and 2,687 kW.
+- **BESS optimisation saves ~1.3M/yr vs school status quo**: Baseline (BESS=0, CC=5,000) costs 105.11M vs 103.80M for C0/C1/PI — installing a BESS saves approximately 1.31M NTD/year even at 515 kW PV. The Baseline pays more in energy (93.39M) and basic demand charges (11.71M) due to the unoptimised contract and no peak shaving.
 - **Near-zero PI gap**: C0/C1 replay = 103.80M, gap to PI = 0.00M — forecast quality is effectively oracle-level even at 515 kW.
-- **RE20 impact**: Without the RE20 constraint, T-REC cost drops to 0.00M for all optimized cases. However, RE% is only 2.7% (515 kW PV, no T-REC purchase). The Baseline achieves 14.6% RE from PV alone at lower total cost.
-- **No significant probabilistic advantage**: At 515 kW, the C0 vs C1 sizing difference is minor (643 vs 604 kW P_B), and total costs are tied. The over-contract pattern favors C2/C3 (load-perturbed) at 0.11–0.12M vs 0.49–0.52M for C0/C1.
+- **RE20 excluded**: Without the RE20 constraint, T-REC cost is 0.00M for all optimised cases. RE% sits at 2.7–2.8% (515 kW PV only, no T-REC purchase forced).
+- **No significant probabilistic advantage**: At 515 kW, C0 vs C1 total costs are tied at 103.80M. C2/C3 (load-perturbed) reduce over-contract to 0.11–0.12M vs 0.49–0.52M for C0/C1.
 
 ---
 

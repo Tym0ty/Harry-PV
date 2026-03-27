@@ -169,7 +169,7 @@ Full evaluation of the 19-quantile **Normalized CQR**-calibrated forecast (per H
 
 Normalized CQR normalizes calibration residuals by clear-sky GHI before computing the conformal correction, making interval widths proportional to sky brightness. This eliminates the seasonal distribution shift problem (calibration set: Apr–Oct only) that caused standard CQR to overcorrect on cool months.
 
-**Reliability Diagram (Raw vs CQR, 19 Quantiles):**
+**Reliability Diagram (Raw vs Normalized CQR, 19 Quantiles):**
 ![CQR Comparison](Project_Archive_Prediction_Final/reports/comprehensive_eval/cqr_comparison.png)
 
 **PIT Histograms (All Test / Daylight / Critical Hours):**

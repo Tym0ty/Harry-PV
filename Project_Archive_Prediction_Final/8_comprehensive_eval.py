@@ -280,7 +280,7 @@ def fig_reliability(df_cal: pd.DataFrame, df_raw: pd.DataFrame):
         obs_raw = _observed_freq(raw)
         ax.plot([0, 1], [0, 1], "k--", lw=0.8, label="Perfect")
         ax.plot(TAUS, obs_raw, "o-", ms=4, lw=1.2, label="Raw (uncalibrated)")
-        ax.plot(TAUS, obs_cal, "s-", ms=4, lw=1.2, label="CQR-calibrated")
+        ax.plot(TAUS, obs_cal, "s-", ms=4, lw=1.2, label="Normalized CQR")
         ax.set_xlabel("Nominal quantile level")
         ax.set_ylabel("Observed frequency (y < q)")
         ax.set_title(title)
@@ -451,20 +451,20 @@ def fig_cqr_comparison(df_cal: pd.DataFrame, df_raw: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.plot([0, 1], [0, 1], "k--", lw=0.8, label="Perfect calibration")
     ax.plot(TAUS, obs_raw, "o-", ms=5, lw=1.3, color="salmon", label="Raw (uncalibrated)")
-    ax.plot(TAUS, obs_cal, "s-", ms=5, lw=1.3, color="steelblue", label="CQR-calibrated")
+    ax.plot(TAUS, obs_cal, "s-", ms=5, lw=1.3, color="steelblue", label="Normalized CQR")
 
     # Annotate improvement
     mae_raw = np.mean(np.abs(obs_raw - TAUS))
     mae_cal = np.mean(np.abs(obs_cal - TAUS))
     ax.text(0.05, 0.90,
-            f"Mean |cal. error|:\n  Raw = {mae_raw:.4f}\n  CQR = {mae_cal:.4f}",
+            f"Mean |cal. error|:\n  Raw        = {mae_raw:.4f}\n  Norm. CQR = {mae_cal:.4f}",
             transform=ax.transAxes, fontsize=9,
             verticalalignment="top",
             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5))
 
     ax.set_xlabel("Nominal quantile level")
     ax.set_ylabel("Observed frequency (y < q)")
-    ax.set_title("CQR Before / After Comparison (daylight)")
+    ax.set_title("Calibration Comparison: Raw vs Normalized CQR (daylight)")
     ax.legend(loc="lower right")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     ax.set_aspect("equal")

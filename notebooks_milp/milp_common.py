@@ -201,12 +201,11 @@ def load_data(CFG, case):
             })
 
         # TOU prices for this day's 24 hours
-        # hour_local 1..24 → TOU hour_0based: h_local=1→hour0=1, h_local=24→hour0=0
+        # t=0..23 maps directly to TOU hour_0based=0..23
+        # (hour_local=1 is hour-ending 01:00, i.e. the 00:00-01:00 interval)
         tou = np.zeros(n_hours)
         for t in range(n_hours):
-            h_local = t + 1  # 1..24
-            h0 = h_local if h_local < 24 else 0
-            tou[t] = get_tou_price(cd.month, cd.day, dow, h0)
+            tou[t] = get_tou_price(cd.month, cd.day, dow, t)
 
         day_data[di] = {
             'calendar_day': cd,

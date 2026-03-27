@@ -597,8 +597,6 @@ def replay(sizing, truth_df, calendar_df, CFG, case_id="C0"):
             total_load += load_t
             key = (di, t)
 
-            h0 = h_local if h_local < 24 else 0
-
             # Same constraints as solve but single scenario, fixed sizing
             m.addConstr(P_grid_load[key] + P_pv_load[key] + P_dis[key] == load_t)
             m.addConstr(P_ch[key] == P_grid_ch[key] + P_pv_ch[key])
@@ -652,7 +650,7 @@ def replay(sizing, truth_df, calendar_df, CFG, case_id="C0"):
         get_tou_price(pd.Timestamp(cal_lookup.loc[di, 'calendar_day']).month,
                       pd.Timestamp(cal_lookup.loc[di, 'calendar_day']).day,
                       pd.Timestamp(cal_lookup.loc[di, 'calendar_day']).weekday(),
-                      (t + 1) if (t + 1) < 24 else 0) *
+                      t) *
         (P_grid_load[di, t] + P_grid_ch[di, t])
         for di in day_indices for t in range(n_hours))
 
@@ -687,7 +685,8 @@ def replay(sizing, truth_df, calendar_df, CFG, case_id="C0"):
 
     pv_self_val = sum(P_pv_load[di, t].X for di in day_indices for t in range(n_hours))
     dis_green_val = sum(P_dis_g[di, t].X for di in day_indices for t in range(n_hours))
-    re_pct = (pv_self_val + dis_green_val) / total_load * 100 if total_load > 0 else 0
+    trec_val = E_TREC.X
+    re_pct = (pv_self_val + dis_green_val + trec_val) / total_load * 100 if total_load > 0 else 0
 
     # Monthly bills
     monthly_bills = {}
@@ -702,7 +701,7 @@ def replay(sizing, truth_df, calendar_df, CFG, case_id="C0"):
             get_tou_price(pd.Timestamp(cal_lookup.loc[di, 'calendar_day']).month,
                           pd.Timestamp(cal_lookup.loc[di, 'calendar_day']).day,
                           pd.Timestamp(cal_lookup.loc[di, 'calendar_day']).weekday(),
-                          (t + 1) if (t + 1) < 24 else 0) *
+                          t) *
             (P_grid_load[di, t].X + P_grid_ch[di, t].X)
             for di in mo_days for t in range(n_hours))
         monthly_bills[mo] = basic + over + ene_mo

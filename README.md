@@ -170,13 +170,13 @@ Full evaluation of the 19-quantile **Normalized CQR**-calibrated forecast (per H
 Normalized CQR normalizes calibration residuals by clear-sky GHI before computing the conformal correction, making interval widths proportional to sky brightness. This eliminates the seasonal distribution shift problem (calibration set: Apr–Oct only) that caused standard CQR to overcorrect on cool months.
 
 **Reliability Diagram (Raw vs Normalized CQR, 19 Quantiles):**
-![CQR Comparison](Project_Archive_Prediction_Final/reports/comprehensive_eval/cqr_comparison.png)
+![CQR Comparison](docs/figures/cqr_comparison.png)
 
 **PIT Histograms (All Test / Daylight / Critical Hours):**
-![PIT Histograms](Project_Archive_Prediction_Final/reports/comprehensive_eval/pit_histograms.png)
+![PIT Histograms](docs/figures/pit_histograms.png)
 
 **Hourly Calibration (PICP80 / ACE80 / Lower Tail / MPIW):**
-![Hourly Calibration](Project_Archive_Prediction_Final/reports/comprehensive_eval/hourly_calibration.png)
+![Hourly Calibration](docs/figures/hourly_calibration.png)
 
 ### Calibration Method Comparison (Raw vs CQR variants)
 
@@ -220,10 +220,10 @@ Standard CQR calibrated only on warm months (Apr–Oct) **overcorrects** when ap
 **Key finding:** Normalized CQR achieves the best calibration error (0.0247, −9% vs raw) across all seasons. Seasonal CQR cool-month performance equals raw (by design: delta=0 fallback). Standard CQR gives marginal improvement overall but shows no benefit in cool months compared to Normalized CQR.
 
 **Reliability Diagram — 4 Methods:**
-![Calibration Comparison](Project_Archive_Prediction_Final/reports/comprehensive_eval/calibration_comparison.png)
+![Calibration Comparison](docs/figures/calibration_comparison.png)
 
 **Seasonal Breakdown (Warm vs Cool):**
-![Seasonal Breakdown](Project_Archive_Prediction_Final/reports/comprehensive_eval/calibration_seasonal_breakdown.png)
+![Seasonal Breakdown](docs/figures/calibration_seasonal_breakdown.png)
 
 ### Deliverables
 

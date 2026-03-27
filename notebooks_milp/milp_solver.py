@@ -17,7 +17,7 @@ from gurobipy import GRB
 from milp_common import get_monthly_basic_charge
 
 
-def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_ub=None, cc_lb=None, pb_lb=None, pb_ub=None, eb_ub=None, eb_lb=None, mip_gap=None):
+def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_ub=None, cc_lb=None, pb_lb=None, pb_ub=None, eb_ub=None, eb_lb=None, mip_gap=None, no_re20=False):
     """Build and solve the full-year MILP for one case.
 
     Args:
@@ -326,19 +326,20 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_u
     # C10: RE20 and T-REC gap filler (spec eq 17-20: expected accounting)
     # Expected RE20 constraint — prevents BESS oversizing for worst-case scenario
     # while maintaining robust over-contract hedging via Dmax
-    E_pv_self_yr = gp.quicksum(
-        day_data[di]['scenarios'][s]['prob'] * P_pv_load[di, s, t]
-        for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
-    E_dis_g_yr = gp.quicksum(
-        day_data[di]['scenarios'][s]['prob'] * P_dis_g[di, s, t]
-        for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
-    E_load_yr = sum(
-        day_data[di]['scenarios'][s]['prob'] * float(day_data[di]['scenarios'][s]['load_kw'][t])
-        for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+    if not no_re20:
+        E_pv_self_yr = gp.quicksum(
+            day_data[di]['scenarios'][s]['prob'] * P_pv_load[di, s, t]
+            for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+        E_dis_g_yr = gp.quicksum(
+            day_data[di]['scenarios'][s]['prob'] * P_dis_g[di, s, t]
+            for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
+        E_load_yr = sum(
+            day_data[di]['scenarios'][s]['prob'] * float(day_data[di]['scenarios'][s]['load_kw'][t])
+            for di in day_indices for s in range(n_scenarios) for t in range(n_hours))
 
-    m.addConstr(
-        E_pv_self_yr + E_dis_g_yr + E_TREC >= re_target * E_load_yr,
-        name="C10")
+        m.addConstr(
+            E_pv_self_yr + E_dis_g_yr + E_TREC >= re_target * E_load_yr,
+            name="C10")
 
     # C12: Green SOC year-end
     if not is_prob:
@@ -501,7 +502,7 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_u
         return None
 
 
-def replay(sizing, truth_df, calendar_df, CFG, case_id="C0"):
+def replay(sizing, truth_df, calendar_df, CFG, case_id="C0", no_re20=False):
     """Fixed-design replay using truth data.
 
     Args:
@@ -641,9 +642,10 @@ def replay(sizing, truth_df, calendar_df, CFG, case_id="C0"):
         m.addConstr(O1[mo] <= 0.10 * cc_val)
 
     # RE20
-    E_pv_self = gp.quicksum(P_pv_load[di, t] for di in day_indices for t in range(n_hours))
-    E_dis_green = gp.quicksum(P_dis_g[di, t] for di in day_indices for t in range(n_hours))
-    m.addConstr(E_pv_self + E_dis_green + E_TREC >= re_target * total_load)
+    if not no_re20:
+        E_pv_self = gp.quicksum(P_pv_load[di, t] for di in day_indices for t in range(n_hours))
+        E_dis_green = gp.quicksum(P_dis_g[di, t] for di in day_indices for t in range(n_hours))
+        m.addConstr(E_pv_self + E_dis_green + E_TREC >= re_target * total_load)
 
     # Objective (operational only, investment is sunk)
     AEC_ene = gp.quicksum(

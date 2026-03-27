@@ -34,6 +34,8 @@ SUMMER_END_MD   = (10, 15)
 # Paths
 ROOT        = Path(__file__).resolve().parent.parent
 DATA_CSV    = ROOT / "NTUST_Load_PV.csv"
+DATA_OLD_XLS = ROOT / "Project_Archive_Prediction_Final" / "data" / "raw" / "NTUST_Load_merged_fixed_v2.xlsx"
+USE_OLD_LOAD = True  # True = use old Taipower meter readings (net load)
 SCENARIO_PQ = ROOT / "pipeline_outputs" / "scenarios_joint_pv_load_reduced_5.parquet"
 PV_DET_PQ   = ROOT / "pipeline_outputs" / "pv_point_forecast_caseyear.parquet"
 OUT_DIR     = ROOT / "bridge_outputs_fullyear"
@@ -99,6 +101,17 @@ def run_bridge():
     ntust["Date"] = pd.to_datetime(ntust["Date"])
     ntust["hour_0"] = ntust["Time"].str[:2].astype(int)
 
+    # Old load data (Taipower meter = net load, not smoothed by PV)
+    if USE_OLD_LOAD:
+        ntust_old = pd.read_excel(DATA_OLD_XLS)
+        ntust_old["Date"] = pd.to_datetime(ntust_old["Date"])
+        ntust_old["hour_0"] = ntust_old["Time"].str[:2].astype(int)
+        # Build old load lookup
+        old_load_map = {}
+        for _, row in ntust_old.iterrows():
+            old_load_map[(row["Date"], row["hour_0"])] = row["Load_kWh"]
+        print(f"  Old load data: {len(ntust_old)} rows (Taipower meter readings)")
+
     # Scenario PV (50kW reference, 5 reduced scenarios)
     sc_raw = pd.read_parquet(SCENARIO_PQ)
     sc_raw["target_day_local"] = pd.to_datetime(sc_raw["target_day_local"])
@@ -155,7 +168,12 @@ def run_bridge():
             h_local = h0
 
         if d in day_to_idx:
-            load_truth[(d, h_local)] = row["Load_kWh"]
+            if USE_OLD_LOAD:
+                # Use old Taipower meter readings (net load)
+                old_val = old_load_map.get((row["Date"], row["hour_0"]), None)
+                load_truth[(d, h_local)] = old_val if old_val is not None else row["Load_kWh"]
+            else:
+                load_truth[(d, h_local)] = row["Load_kWh"]
             pv_realized[(d, h_local)] = row["Solar_kWh"] * NTUST_PV_SCALE
 
     # Check completeness

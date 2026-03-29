@@ -1,9 +1,12 @@
 """
-Full-Year Direct Solve MILP — Shared config, data loading, TOU, results.
+MILP Layer — Shared config, data loading, TOU, results.
 
-Per FF0326Harry_MILP_Engineering_Spec_FullYear_Formal_vfinal.
+Per F0329MILP_Spec.pdf (Batch 17) + F0329Bridge_Spec.pdf (Batch 8).
 Cases: C0 (det PV + det load), C1 (prob PV + det load),
-       C2 (det PV + pert load), C3 (prob PV + pert load).
+       C2 (det PV + load unc), C3 (prob PV + load unc), C_PFI (perfect).
+
+One-parser rule: load_data() dispatches on pv_mode / load_mode fields,
+NOT on filename or case_id. All 5 cases share the same loading code path.
 """
 import numpy as np
 import pandas as pd
@@ -74,8 +77,9 @@ def get_tou_price(month, day, dow, hour_0based):
 
 def get_config():
     CFG = dict(
-        bridge_dir    = '../bridge_outputs_fullyear',
+        bridge_dir    = '../bridge_outputs_fullyear',   # F0329 bridge output dir
         output_dir    = '../milp_outputs',
+        spec_version  = 'F0329MILP_Spec Batch 17',
 
         # PV (fixed — not a decision variable, spec PV_001)
         pv_fixed_kw   = 2_687,
@@ -137,15 +141,33 @@ def get_config():
 #  Case Table (spec §4)
 # ──────────────────────────────────────────────────────────────
 
+# ── Canonical filename lookup (spec §F0329Bridge Batch 8) ─────
+# Alias fallback: try canonical name first, then legacy alias if file missing.
+CANONICAL_ROLLING_FILES = {
+    "C0":    "rolling_da_input_pvdet_loaddet.parquet",
+    "C1":    "rolling_da_input_pvprob_loaddet.parquet",
+    "C2":    "rolling_da_input_pvdet_loadunc.parquet",
+    "C3":    "rolling_da_input_pvprob_loadunc.parquet",
+    "C_PFI": "rolling_da_input_pvperfect_loadperfect.parquet",
+}
+LEGACY_ALIAS_ROLLING = {
+    "C0": "full_year_milp_ingest_pvdet_loaddet.parquet",
+    "C1": "full_year_milp_ingest_pvprob_loaddet.parquet",
+    "C2": "full_year_milp_ingest_pvdet_loadpert.parquet",
+    "C3": "full_year_milp_ingest_pvprob_loadpert.parquet",
+}
+
 CASE_TABLE = [
-    {"case_id": "C0", "ingest_file": "full_year_milp_ingest_pvdet_loaddet.parquet",
-     "pv_mode": "det", "load_mode": "det", "label": "Det PV + Det Load"},
-    {"case_id": "C1", "ingest_file": "full_year_milp_ingest_pvprob_loaddet.parquet",
-     "pv_mode": "prob", "load_mode": "det", "label": "Prob PV + Det Load"},
-    {"case_id": "C2", "ingest_file": "full_year_milp_ingest_pvdet_loadpert.parquet",
-     "pv_mode": "det", "load_mode": "pert", "label": "Det PV + Pert Load"},
-    {"case_id": "C3", "ingest_file": "full_year_milp_ingest_pvprob_loadpert.parquet",
-     "pv_mode": "prob", "load_mode": "pert", "label": "Prob PV + Pert Load"},
+    {"case_id": "C0",    "pv_mode": "pv_det",     "load_mode": "load_det",
+     "label": "Det PV + Det Load (Baseline)"},
+    {"case_id": "C1",    "pv_mode": "pv_prob",    "load_mode": "load_det",
+     "label": "Prob PV + Det Load"},
+    {"case_id": "C2",    "pv_mode": "pv_det",     "load_mode": "load_unc",
+     "label": "Det PV + Load Uncertainty"},
+    {"case_id": "C3",    "pv_mode": "pv_prob",    "load_mode": "load_unc",
+     "label": "Prob PV + Load Uncertainty"},
+    {"case_id": "C_PFI", "pv_mode": "pv_pfi",     "load_mode": "load_pfi",
+     "label": "Perfect Forecast (Upper Bound)"},
 ]
 
 
@@ -154,19 +176,41 @@ CASE_TABLE = [
 # ──────────────────────────────────────────────────────────────
 
 def load_data(CFG, case):
-    """Load a full-year MILP ingest package.
+    """Load a rolling DA input package for any of the 5 formal cases.
+
+    One-parser rule (spec §2.3): dispatches on pv_mode / load_mode fields
+    from the parquet data itself — NOT on filename or case_id branching.
+
+    Tries canonical filename first; falls back to legacy alias if missing.
 
     Returns:
         day_data: dict[day_index] -> {
             'calendar_day', 'month_id', 'season_tag', 'day_type', 'is_holiday',
-            'scenarios': list of {pv_kw[24], load_kw[24], prob}
+            'scenarios': list of {pv_kw[24], load_kw[24], prob, scenario_id}
             'tou': ndarray[24] TOU prices
-            'is_summer': bool
+            'is_summer': bool, 'pv_mode': str, 'load_mode': str
         }
-        n_days, n_hours, scenario_ids, day_indices
+        day_indices, scenario_ids
     """
     bridge = Path(CFG['bridge_dir'])
-    ingest = pd.read_parquet(bridge / case['ingest_file'])
+    case_id = case['case_id']
+
+    # Canonical filename with legacy alias fallback
+    canonical = bridge / CANONICAL_ROLLING_FILES[case_id]
+    legacy = bridge / LEGACY_ALIAS_ROLLING.get(case_id, "")
+    if canonical.exists():
+        ingest_path = canonical
+    elif legacy.exists():
+        print(f"  [WARN] Using legacy alias: {legacy.name}")
+        ingest_path = legacy
+    else:
+        raise FileNotFoundError(
+            f"Rolling package not found for {case_id}.\n"
+            f"  Tried: {canonical}\n"
+            f"  Tried: {legacy}"
+        )
+
+    ingest = pd.read_parquet(ingest_path)
     calendar = pd.read_parquet(bridge / 'caseyear_calendar_manifest.parquet')
 
     day_indices = sorted(ingest['day_index'].unique())
@@ -188,35 +232,40 @@ def load_data(CFG, case):
         cd = pd.Timestamp(cal['calendar_day'])
         dow = cd.weekday()
 
+        # One-parser rule: dispatch on pv_mode/load_mode from data, not from case_id
+        sample_row = d_ingest.iloc[0]
+        day_pv_mode   = sample_row['pv_mode']
+        day_load_mode = sample_row['load_mode']
+
         scenarios = []
         for sid in scenario_ids:
             s_data = d_ingest[d_ingest['scenario_id'] == sid].sort_values('hour_local')
             if len(s_data) == 0:
                 continue
             scenarios.append({
-                'pv_kw': s_data['pv_available_kw'].values,
-                'load_kw': s_data['load_kw'].values,
-                'prob': float(s_data['probability_pi'].iloc[0]),
+                'pv_kw':       s_data['pv_available_kw'].values,
+                'load_kw':     s_data['load_kw'].values,
+                'prob':        float(s_data['probability_pi'].iloc[0]),
                 'scenario_id': sid,
             })
 
-        # TOU prices for this day's 24 hours
-        # t=0..23 maps directly to TOU hour_0based=0..23
-        # (hour_local=1 is hour-ending 01:00, i.e. the 00:00-01:00 interval)
+        # TOU prices: t=0..23 maps to hour_0based=0..23
         tou = np.zeros(n_hours)
         for t in range(n_hours):
             tou[t] = get_tou_price(cd.month, cd.day, dow, t)
 
         day_data[di] = {
             'calendar_day': cd,
-            'month_id': int(cal['month_id']),
-            'season_tag': cal['season_tag'],
-            'day_type': cal['day_type'],
-            'is_holiday': bool(cal['is_holiday']),
-            'is_summer': bool(cal['is_summer']),
-            'scenarios': scenarios,
-            'tou': tou,
-            'dow': dow,
+            'month_id':     int(cal['month_id']),
+            'season_tag':   cal['season_tag'],
+            'day_type':     cal['day_type'],
+            'is_holiday':   bool(cal['is_holiday']),
+            'is_summer':    bool(cal['is_summer']),
+            'pv_mode':      day_pv_mode,
+            'load_mode':    day_load_mode,
+            'scenarios':    scenarios,
+            'tou':          tou,
+            'dow':          dow,
         }
 
     return day_data, day_indices, scenario_ids

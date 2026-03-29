@@ -1,0 +1,103 @@
+{
+  "_spec_version": "F0329MILP_Spec Batch 17",
+  "_bridge_spec":  "F0329Bridge_Spec Batch 8",
+  "_created":      "2026-03-30",
+  "_note": "This file is read by milp_layer_a.py before any solve. All candidate sets and frozen parameters must be set here.",
+
+  "formal_case_year": {
+    "start": "2024-10-01",
+    "end":   "2025-10-31",
+    "timezone": "Asia/Taipei",
+    "hour_convention": "hour_local 1..24"
+  },
+
+  "candidate_sets": {
+    "_note": "X_grid = C_grid x P_grid x E_grid. Units: kW / kW / kWh. Adjust for thesis sensitivity runs.",
+    "C_grid": [2500, 2600, 2700, 2800, 2900, 3000, 3100, 3200],
+    "P_grid": [0, 200, 400, 600, 800, 1000, 1200],
+    "E_grid": [0, 400, 800, 1200, 1600, 2000, 2400]
+  },
+
+  "frozen_parameters": {
+    "_note": "DO NOT change for formal mainline runs. Verify against F0329MILP_Spec §5.",
+
+    "BESS": {
+      "eta_ch":   { "value": 0.95,  "unit": "-",    "spec_id": "BESS_001" },
+      "eta_dis":  { "value": 0.95,  "unit": "-",    "spec_id": "BESS_002" },
+      "SOC_min":  { "value": 0.10,  "unit": "-",    "spec_id": "BESS_003" },
+      "SOC_max":  { "value": 0.90,  "unit": "-",    "spec_id": "BESS_004" },
+      "SOC_init": { "value": 0.50,  "unit": "-",    "spec_id": "BESS_005" },
+      "C_B_P":    { "value": 11944, "unit": "NTD/kW",   "spec_id": "BESS_006" },
+      "C_B_E":    { "value": 7738,  "unit": "NTD/kWh",  "spec_id": "BESS_007" }
+    },
+
+    "billing": {
+      "c_basic_s":      { "value": 223.6, "unit": "NTD/kW-month", "spec_id": "CP_001" },
+      "c_basic_ns":     { "value": 166.9, "unit": "NTD/kW-month", "spec_id": "CP_002" },
+      "Delta_tau_min":  { "value": 15,    "unit": "min",           "spec_id": "CP_003",
+                          "_note": "Taipower billing interval. kappa proxy for hourly SOC only." },
+      "m_over_10pct":   { "value": 2,     "unit": "x",             "spec_id": "CP_004" },
+      "m_over_gt10pct": { "value": 3,     "unit": "x",             "spec_id": "CP_005" },
+      "kappa":          { "value": 1.0035,"unit": "-",             "spec_id": "CP_006" },
+      "summer_start":   { "value": "05-16","unit": "MM-DD",        "spec_id": "CP_009" },
+      "summer_end":     { "value": "10-15","unit": "MM-DD",        "spec_id": "CP_010" }
+    },
+
+    "renewable": {
+      "RE_target":      { "value": 0.20,  "unit": "-",        "spec_id": "SYS_004" },
+      "c_TREC":         { "value": 4.63,  "unit": "NTD/kWh",  "spec_id": "RE_002" },
+      "epsilon_term":   { "value": 0.05,  "unit": "share_E_B","spec_id": "RE_003" },
+      "epsilon_g_term": { "value": 0.05,  "unit": "share_E_B","spec_id": "RE_004" }
+    },
+
+    "financial": {
+      "r":       { "value": 0.05,    "unit": "-",       "spec_id": "FIN_001" },
+      "N_B":     { "value": 15,      "unit": "years",   "spec_id": "FIN_002" },
+      "CRF_BESS":{ "value": 0.09634, "unit": "-",       "spec_id": "FIN_003",
+                   "_derivation": "r*(1+r)^N / ((1+r)^N - 1), r=0.05, N=15" }
+    },
+
+    "degradation": {
+      "N_cyc":        { "value": 6000,  "unit": "cycles", "spec_id": "DEG_001" },
+      "DoD_ref":      { "value": 0.80,  "unit": "-",      "spec_id": "DEG_002" },
+      "lambda_base":  { "value": 1.612, "unit": "NTD/kWh","spec_id": "DEG_004",
+                        "_derivation": "C_B_E / (N_cyc * DoD_ref) = 7738/(6000*0.80)" },
+      "b_k":          { "value": [0.0, 0.1, 0.3, 0.6, 0.8], "unit": "fraction_E_B", "spec_id": "DEG_005" },
+      "mu_k":         { "value": [0.6, 1.0, 1.6, 2.4],       "unit": "-",            "spec_id": "DEG_006" },
+      "lambda_k":     { "value": [0.97, 1.61, 2.58, 3.87],   "unit": "NTD/kWh",     "spec_id": "DEG_007" }
+    },
+
+    "PV": {
+      "PV_UB": { "value": 2687, "unit": "kW", "spec_id": "PV_001" }
+    }
+  },
+
+  "solver_settings": {
+    "solver":     "Gurobi",
+    "mip_gap":    0.001,
+    "time_limit_layer_a_s": 600,
+    "time_limit_layer_b_s": 60,
+    "seed":       425
+  },
+
+  "bridge_artifacts_consumed": {
+    "rolling_da_input_pvdet_loaddet.parquet":        "C0",
+    "rolling_da_input_pvprob_loaddet.parquet":       "C1",
+    "rolling_da_input_pvdet_loadunc.parquet":        "C2",
+    "rolling_da_input_pvprob_loadunc.parquet":       "C3",
+    "rolling_da_input_pvperfect_loadperfect.parquet":"C_PFI",
+    "repday_input_pvdet_loaddet.parquet":            "C0_LayerA",
+    "repday_input_pvprob_loaddet.parquet":           "C1_LayerA",
+    "repday_input_pvdet_loadunc.parquet":            "C2_LayerA",
+    "repday_input_pvprob_loadunc.parquet":           "C3_LayerA",
+    "repday_input_pvperfect_loadperfect.parquet":    "CPFI_LayerA"
+  },
+
+  "legacy_alias_map": {
+    "rolling_da_input_pvdet_loaddet.parquet":  "full_year_milp_ingest_pvdet_loaddet.parquet",
+    "rolling_da_input_pvprob_loaddet.parquet": "full_year_milp_ingest_pvprob_loaddet.parquet",
+    "rolling_da_input_pvdet_loadunc.parquet":  "full_year_milp_ingest_pvdet_loadpert.parquet",
+    "rolling_da_input_pvprob_loadunc.parquet": "full_year_milp_ingest_pvprob_loadpert.parquet",
+    "load_uncertainty_manifest.parquet":       "load_perturbation_manifest.parquet"
+  }
+}

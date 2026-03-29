@@ -1,194 +1,222 @@
 #!/usr/bin/env python3
 """
-Run-All Pipeline: Forecast artifacts → Bridge → MILP Solve → Replay → Results.
+Run-All Pipeline: F0329 5-Stage Orchestration.
+Per F0329Bridge_Spec Batch 8 + F0329MILP_Spec Batch 17.
 
-Generates forecast artifacts from NTUST_Load_PV.csv (actual PV as proxy),
-runs bridge layer, then runs MILP C0–C3 with replay on truth data.
+Stages:
+  Stage 0  — Link forecast artifacts from pipeline_outputs/
+  Stage 1  — Bridge: build both rolling DA + repday families (+ scenario reduction)
+  Stage 2a — Layer A: annual fixed-design selection per case
+  Stage 2b — Layer B: sequential daily solve per case (using Layer A design)
+  Stage 2c — Replay: fixed-design replay against realized truth (within Layer B)
+  Stage 3  — Reporting: aggregate tables + gap analysis
 
 Usage:
-    python3 run_all.py
+    python3 run_all.py [--cases C0 C1 C2 C3 C_PFI] [--skip_bridge] [--skip_layer_a]
+    Set GRB_LICENSE_FILE env var to your Gurobi license path.
 
-Requires: pandas, numpy, pyarrow, scipy, scikit-learn, scikit-learn-extra, gurobipy
-Set GRB_LICENSE_FILE env var to your Gurobi license file path.
+Requires: pandas, numpy, pyarrow, scipy, scikit-learn, gurobipy
 """
-import os, sys, json, time
+import os, sys, json, time, argparse
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 os.chdir(ROOT)
+sys.path.insert(0, str(ROOT / "notebooks_bridge"))
+sys.path.insert(0, str(ROOT / "notebooks_milp"))
+
+MANIFEST_PATH = ROOT / "milp_run_manifest.json"
+BRIDGE_OUT    = ROOT / "bridge_outputs_fullyear"
+MILP_OUT      = ROOT / "milp_outputs"
+
 
 # ──────────────────────────────────────────────────────────────
-#  Stage 0: Generate forecast artifacts from NTUST actual data
+#  Stage 0: Link forecast artifacts
 # ──────────────────────────────────────────────────────────────
 
-def stage0_generate_forecast_artifacts():
-    """Link real Gaussian copula pipeline scenarios into bridge_outputs.
-
-    Uses the official pipeline outputs:
-    - pipeline_outputs/pv_point_forecast_caseyear.parquet (deterministic PV)
-    - pipeline_outputs/scenarios_joint_pv_load_reduced_5.parquet (5 k-medoids scenarios)
-
-    These come from the CQR-calibrated 19-quantile Gaussian copula (S6-S8)
-    with temporal correlation decay=0.3, 500 raw → 5 k-medoids reduced.
-    """
-    print("=" * 60)
+def stage0_link_forecasts():
+    print("\n" + "=" * 60)
     print("STAGE 0: Link Forecast Artifacts")
     print("=" * 60)
 
     pipeline_dir = ROOT / "pipeline_outputs"
-    bridge_out = ROOT / "bridge_outputs"
-    bridge_out.mkdir(parents=True, exist_ok=True)
-
-    # Check that real pipeline outputs exist
     pv_det_path = pipeline_dir / "pv_point_forecast_caseyear.parquet"
-    sc_path = pipeline_dir / "scenarios_joint_pv_load_reduced_5.parquet"
+    sc_path     = pipeline_dir / "scenarios_joint_pv_load_reduced_5.parquet"
 
     if not pv_det_path.exists() or not sc_path.exists():
         raise FileNotFoundError(
             f"Pipeline outputs not found. Run the forecast pipeline first.\n"
-            f"  Expected: {pv_det_path}\n"
-            f"  Expected: {sc_path}"
+            f"  Expected: {pv_det_path}\n  Expected: {sc_path}"
         )
 
-    # Copy reduced scenarios to bridge_outputs (where bridge_full_year.py expects them)
-    sc_df = pd.read_parquet(sc_path)
-    sc_df.to_parquet(bridge_out / "scenarios_fullyear_reduced_5.parquet", index=False)
-
+    sc_df  = pd.read_parquet(sc_path)
     pv_det = pd.read_parquet(pv_det_path)
     print(f"  Det PV: {len(pv_det)} rows")
-    print(f"  Scenarios: {len(sc_df)} rows, {sc_df['scenario_id'].nunique()} scenarios/day")
-    print(f"  Probabilities (day 1): {sc_df[sc_df['target_day_local'] == sc_df['target_day_local'].iloc[0]].groupby('scenario_id')['probability_pi'].first().values}")
-    print(f"  Source: Gaussian copula (19Q CQR, decay=0.3, 500→5 k-medoids)")
-
+    print(f"  Scenarios: {len(sc_df)} rows, {sc_df['scenario_id'].nunique()} PV scenarios/day")
     return True
 
 
 # ──────────────────────────────────────────────────────────────
-#  Stage 1: Bridge Layer
+#  Stage 1: Bridge
 # ──────────────────────────────────────────────────────────────
 
 def stage1_bridge():
     print("\n" + "=" * 60)
-    print("STAGE 1: Bridge Layer")
+    print("STAGE 1: Bridge Layer (F0329 Spec)")
     print("=" * 60)
 
-    sys.path.insert(0, str(ROOT / "notebooks_bridge"))
     from bridge_full_year import run_bridge
     report = run_bridge()
+
+    # 1b: Representative-day builder
+    print("\n--- RepDay Builder ---")
+    from repday_builder import build_repdays
+    repday_report = build_repdays(BRIDGE_OUT)
+
+    # 1c: Scenario reduction (C1, C2, C3)
+    print("\n--- Scenario Reduction ---")
+    from scenario_reduction import reduce_all_packages
+    reduce_all_packages(BRIDGE_OUT, n_target_c1=5, n_target_c2=5, n_target_c3=10)
+
     return report
 
 
 # ──────────────────────────────────────────────────────────────
-#  Stage 2: MILP Solve (C0–C3) + Replay
+#  Stage 2a: Layer A — Annual design selection
 # ──────────────────────────────────────────────────────────────
 
-def stage2_milp():
+def stage2a_layer_a(cases):
     print("\n" + "=" * 60)
-    print("STAGE 2: MILP Solve (C0–C3) + Replay")
+    print("STAGE 2a: Layer A — Annual Fixed-Design Selection")
     print("=" * 60)
 
-    # milp_common uses relative paths like '../bridge_outputs_fullyear'
-    os.chdir(ROOT / "notebooks_milp")
-    sys.path.insert(0, str(ROOT / "notebooks_milp"))
-    from milp_common import get_config, CASE_TABLE, load_data, load_truth, format_results
-    from milp_solver import build_and_solve, replay
+    from milp_layer_a import run_layer_a
+
+    design_results = {}
+    for case_id in cases:
+        print(f"\n{'=' * 40}")
+        print(f"Layer A — {case_id}")
+        best, _ = run_layer_a(
+            case_id,
+            str(MANIFEST_PATH),
+            bridge_dir=str(BRIDGE_OUT),
+            output_dir=str(MILP_OUT),
+        )
+        design_results[case_id] = best
+
+    # Save master design table
+    rows = []
+    for cid, r in design_results.items():
+        if r:
+            rows.append({
+                "case_id": cid,
+                "CC_kW":   r["CC"],
+                "P_B_kW":  r["P_B"],
+                "E_B_kWh": r["E_B"],
+                "J_A_M":   round(r["J_A"] / 1e6, 3),
+                "AEC_inv_M": round(r.get("AEC_inv", 0) / 1e6, 3),
+            })
+    if rows:
+        pd.DataFrame(rows).to_csv(MILP_OUT / "design_results_master.csv", index=False)
+        print("\n=== DESIGN RESULTS MASTER ===")
+        print(pd.DataFrame(rows).to_string(index=False))
+
+    return design_results
+
+
+# ──────────────────────────────────────────────────────────────
+#  Stage 2b/2c: Layer B — Sequential solve + replay
+# ──────────────────────────────────────────────────────────────
+
+def stage2bc_layer_b(cases, design_results):
+    print("\n" + "=" * 60)
+    print("STAGE 2b/c: Layer B — Sequential Solve + Replay")
+    print("=" * 60)
+
+    from milp_common import get_config
+    from milp_layer_b import run_layer_b
 
     CFG = get_config()
+    CFG['bridge_dir'] = str(BRIDGE_OUT)
+    CFG['output_dir'] = str(MILP_OUT)
 
-    # Solve all 4 cases
-    results = []
-    for case in CASE_TABLE:
-        print(f"\n{'=' * 60}")
-        print(f"Case {case['case_id']}: {case['label']}")
-        print("=" * 60)
-        day_data, day_indices, scenario_ids = load_data(CFG, case)
-        r = build_and_solve(day_data, day_indices, scenario_ids, CFG, case['case_id'])
-        if r:
-            results.append(r)
-        else:
-            print(f"  FAILED: {case['case_id']}")
+    replay_summaries = {}
+    for case_id in cases:
+        design = design_results.get(case_id)
+        if not design:
+            print(f"  [SKIP] No design found for {case_id}")
+            continue
+        print(f"\n{'=' * 40}")
+        print(f"Layer B — {case_id}")
+        summary = run_layer_b(case_id, design, CFG, str(MILP_OUT))
+        replay_summaries[case_id] = summary
 
-    # Summary table
-    rows = []
-    for r in results:
-        rows.append(format_results(
-            r['case_id'], r['P_B'], r['E_B'], r['CC'],
-            r['obj_val'], r['re_pct'], r['cost_breakdown'], r['solve_time']))
+    return replay_summaries
 
-    df = pd.DataFrame(rows)
+
+# ──────────────────────────────────────────────────────────────
+#  Stage 3: Reporting + Gap Analysis
+# ──────────────────────────────────────────────────────────────
+
+def stage3_reporting(design_results, replay_summaries):
     print("\n" + "=" * 60)
-    print("SOLVE RESULTS")
-    print("=" * 60)
-    print(df.to_string(index=False))
-
-    # Save
-    Path(CFG['output_dir']).mkdir(parents=True, exist_ok=True)
-    df.to_csv(f"{CFG['output_dir']}/case_summary_fullyear.csv", index=False)
-    with open(f"{CFG['output_dir']}/case_results_fullyear.json", "w") as f:
-        json.dump(rows, f, indent=2)
-
-    # Replay all cases with truth data
-    print("\n" + "=" * 60)
-    print("REPLAY ON TRUTH DATA")
-    print("=" * 60)
-    truth_df, calendar_df = load_truth(CFG)
-
-    replay_results = []
-    for r in results:
-        sizing = {'CC': r['CC'], 'P_B': r['P_B'], 'E_B': r['E_B']}
-        rr = replay(sizing, truth_df, calendar_df, CFG, r['case_id'])
-        if rr:
-            rr['solve_obj_M'] = round(r['obj_val'] / 1e6, 2)
-            rr['gap_pct'] = round(
-                (rr['replay_total_M'] - rr['solve_obj_M']) / rr['solve_obj_M'] * 100, 1)
-            replay_results.append(rr)
-
-    replay_df = pd.DataFrame(replay_results)
-    print("\n" + "=" * 60)
-    print("REPLAY RESULTS")
-    print("=" * 60)
-    print(replay_df[['case_id', 'solve_obj_M', 'replay_total_M', 'gap_pct',
-                      'RE_pct', 'over_months', 'worst_bill_M',
-                      'replay_over_M']].to_string(index=False))
-    replay_df.to_csv(f"{CFG['output_dir']}/replay_summary_fullyear.csv", index=False)
-
-    # Gap analysis
-    print("\n" + "=" * 60)
-    print("GAP ANALYSIS: Does probabilistic PV outperform deterministic?")
+    print("STAGE 3: Reporting + Gap Analysis")
     print("=" * 60)
 
-    if len(replay_results) >= 2:
-        c0 = next(r for r in replay_results if r['case_id'] == 'C0')
-        c1 = next(r for r in replay_results if r['case_id'] == 'C1')
-        diff = c1['replay_total_M'] - c0['replay_total_M']
-        print(f"C0 (det) replay:  {c0['replay_total_M']}M  (over-contract: {c0['replay_over_M']}M, months: {c0['over_months']})")
-        print(f"C1 (prob) replay: {c1['replay_total_M']}M  (over-contract: {c1['replay_over_M']}M, months: {c1['over_months']})")
-        print(f"Difference: {diff:+.2f}M ({'*** Prob WINS ***' if diff < 0 else 'Det wins'})")
+    MILP_OUT.mkdir(parents=True, exist_ok=True)
 
-    if len(replay_results) >= 4:
-        c2 = next(r for r in replay_results if r['case_id'] == 'C2')
-        c3 = next(r for r in replay_results if r['case_id'] == 'C3')
-        diff2 = c3['replay_total_M'] - c2['replay_total_M']
-        print(f"\nC2 (det+pert) replay:  {c2['replay_total_M']}M  (over-contract: {c2['replay_over_M']}M, months: {c2['over_months']})")
-        print(f"C3 (prob+pert) replay: {c3['replay_total_M']}M  (over-contract: {c3['replay_over_M']}M, months: {c3['over_months']})")
-        print(f"Difference: {diff2:+.2f}M ({'*** Prob WINS ***' if diff2 < 0 else 'Det wins'})")
+    # Replay summary master
+    replay_rows = []
+    for cid, s in replay_summaries.items():
+        if s:
+            replay_rows.append({
+                "case_id":    cid,
+                "CC_kW":      s["CC"],
+                "P_B_kW":     s["P_B"],
+                "E_B_kWh":    s["E_B"],
+                "replay_total_M":   round(s["replay_total_NTD"] / 1e6, 3),
+                "basic_M":          round(s["basic_NTD"] / 1e6, 3),
+                "overcontract_M":   round(s["overcontract_NTD"] / 1e6, 3),
+                "energy_M":         round(s["energy_NTD"] / 1e6, 3),
+                "trec_M":           round(s["trec_NTD"] / 1e6, 3),
+                "RE_pct":           round(s["RE_pct"], 1),
+                "oc_months":        s["n_overcontract_months"],
+            })
 
-    # Full cost breakdown comparison
-    print("\n" + "=" * 60)
-    print("FULL COST BREAKDOWN (Solve)")
-    print("=" * 60)
-    for r in rows:
-        print(f"\n{r['case']}:")
-        print(f"  BESS: {r['bess_p_kw']:.0f} kW / {r['bess_e_kwh']:.0f} kWh (E/P={r['ep_ratio']})")
-        print(f"  CC: {r['contract_kw']:.0f} kW")
-        print(f"  AEC_inv={r['AEC_inv_M']}M  AEC_ene={r['AEC_ene_M']}M  "
-              f"AEC_basic={r['AEC_basic_M']}M  AEC_over={r['AEC_over_M']}M  "
-              f"AEC_green={r['AEC_green_M']}M  AEC_deg={r['AEC_deg_M']}M")
-        print(f"  Total: {r['total_cost_M']}M  RE: {r['re_pct']}%")
+    if replay_rows:
+        replay_df = pd.DataFrame(replay_rows)
+        replay_df.to_csv(MILP_OUT / "replay_summary_master.csv", index=False)
+        print("\n=== REPLAY SUMMARY MASTER ===")
+        print(replay_df.to_string(index=False))
 
-    return results, replay_results
+    # Design-to-replay gap analysis
+    print("\n=== GAP ANALYSIS ===")
+    for cid in design_results:
+        d = design_results.get(cid)
+        r = replay_summaries.get(cid)
+        if d and r:
+            j_a = d.get("J_A", 0)
+            rep = r.get("replay_total_NTD", 0)
+            gap = rep - j_a
+            print(f"  {cid}: J_A={j_a/1e6:.3f}M → Replay={rep/1e6:.3f}M "
+                  f"(Gap={gap/1e6:+.3f}M, {gap/j_a*100:+.1f}%)")
+
+    # Research question: C0 vs C1
+    print("\n=== RESEARCH QUESTION: Value of Probabilistic PV ===")
+    c0 = replay_summaries.get("C0")
+    c1 = replay_summaries.get("C1")
+    cpfi = replay_summaries.get("C_PFI")
+    if c0 and c1:
+        diff = c1["replay_total_NTD"] - c0["replay_total_NTD"]
+        pct  = diff / c0["replay_total_NTD"] * 100
+        print(f"  C0 (Det PV):  {c0['replay_total_NTD']/1e6:.3f} M NTD")
+        print(f"  C1 (Prob PV): {c1['replay_total_NTD']/1e6:.3f} M NTD")
+        print(f"  Difference:   {diff/1e6:+.3f} M NTD ({pct:+.1f}%)")
+        print(f"  → {'Probabilistic PV REDUCES annual cost' if diff < 0 else 'Deterministic PV performs as well or better'}")
+    if cpfi:
+        print(f"  C_PFI (Upper bound): {cpfi['replay_total_NTD']/1e6:.3f} M NTD")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -196,20 +224,44 @@ def stage2_milp():
 # ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    t_start = time.time()
+    parser = argparse.ArgumentParser(description="BH Project F0329 Pipeline")
+    parser.add_argument("--cases", nargs="+",
+                        default=["C0", "C1", "C2", "C3", "C_PFI"],
+                        choices=["C0", "C1", "C2", "C3", "C_PFI"])
+    parser.add_argument("--skip_bridge",  action="store_true")
+    parser.add_argument("--skip_layer_a", action="store_true")
+    args = parser.parse_args()
 
-    # Set Gurobi license if not already set
+    # Set Gurobi license
     if 'GRB_LICENSE_FILE' not in os.environ:
         lic_path = Path.home() / "gurobi.lic"
         if lic_path.exists():
             os.environ['GRB_LICENSE_FILE'] = str(lic_path)
-            print(f"Using Gurobi license: {lic_path}")
 
-    stage0_generate_forecast_artifacts()
-    stage1_bridge()
-    results, replay_results = stage2_milp()
+    t_start = time.time()
+
+    stage0_link_forecasts()
+
+    if not args.skip_bridge:
+        stage1_bridge()
+    else:
+        print("  [SKIP] Bridge (--skip_bridge)")
+
+    if not args.skip_layer_a:
+        design_results = stage2a_layer_a(args.cases)
+    else:
+        print("  [SKIP] Layer A (--skip_layer_a) — loading existing design results")
+        design_results = {}
+        for cid in args.cases:
+            p = MILP_OUT / f"design_results_{cid}.json"
+            if p.exists():
+                with open(p) as f:
+                    design_results[cid] = json.load(f)
+
+    replay_summaries = stage2bc_layer_b(args.cases, design_results)
+    stage3_reporting(design_results, replay_summaries)
 
     elapsed = time.time() - t_start
     print(f"\n{'=' * 60}")
-    print(f"PIPELINE COMPLETE — Total time: {elapsed:.1f}s")
+    print(f"PIPELINE COMPLETE — Total: {elapsed:.1f}s")
     print("=" * 60)

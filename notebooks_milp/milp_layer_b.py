@@ -127,7 +127,7 @@ def solve_day(di, day_data, design, CFG, prev_state):
             P_pv_load[(sid, t)]   = m_model.addVar(lb=0, ub=pv_arr[t])
             P_pv_ch[(sid, t)]     = m_model.addVar(lb=0, ub=pv_arr[t])
             P_pv_curt[(sid, t)]   = m_model.addVar(lb=0, ub=pv_arr[t])
-            P_grid_load[(sid, t)] = m_model.addVar(lb=0, ub=ld_arr[t])
+            P_grid_load[(sid, t)] = m_model.addVar(lb=0)  # ub free; balance sets value
             P_grid_ch[(sid, t)]   = m_model.addVar(lb=0, ub=P_B)
             E_s[(sid, t)]         = m_model.addVar(lb=E_MIN, ub=E_MAX)
             E_g_s[(sid, t)]       = m_model.addVar(lb=0, ub=E_MAX)
@@ -164,9 +164,8 @@ def solve_day(di, day_data, design, CFG, prev_state):
                                   - (1 / eta_dis) * P_dis[t])
             m_model.addConstr(E_g_s[(sid, t)] >= 0)
             m_model.addConstr(E_g_s[(sid, t)] <= E_s[(sid, t)])
-            # Contract constraint
-            m_model.addConstr(
-                P_grid_load[(sid, t)] + P_grid_ch[(sid, t)] <= CC * kappa)
+            # CC is a billing threshold (not physical cap) — overcontract tracked via D_m billing
+            # No hard per-hour constraint here.
 
     # PWL degradation
     for t in range(24):

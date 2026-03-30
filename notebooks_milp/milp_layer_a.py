@@ -107,9 +107,16 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
 
     # Build per-repday scenario data
     repday_data = {}
+    # Max scenarios per repday (keep solve tractable for joint PV+load cases)
+    MAX_SCENARIOS = 10
+    rng_sc = np.random.default_rng(42)
+
     for rid in repday_ids:
         rd_rows = repday_df[repday_df["repday_id"] == rid]
         scenarios = sorted(rd_rows["scenario_id"].unique())
+        if len(scenarios) > MAX_SCENARIOS:
+            scenarios = list(rng_sc.choice(scenarios, MAX_SCENARIOS, replace=False))
+            # Re-normalise probabilities to sum to 1
         sc_data = []
         for sid in scenarios:
             sr = rd_rows[rd_rows["scenario_id"] == sid].sort_values("hour_local")
@@ -119,6 +126,11 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
                 "load_kw": sr["load_kw"].values,            # shape (24,)
                 "prob":    float(sr["probability_pi"].iloc[0]),
             })
+        # Renormalise probabilities after any subsampling
+        total_prob = sum(s["prob"] for s in sc_data)
+        if total_prob > 0:
+            for s in sc_data:
+                s["prob"] /= total_prob
         meta_row = meta_df[meta_df["repday_id"] == rid].iloc[0]
         repday_data[rid] = {
             "scenarios": sc_data,
@@ -146,7 +158,7 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
 
     E_MAX = soc_max * E_B
     E_MIN = soc_min * E_B
-    OC_UB = CC * 0.3   # over-contract UB: 30% above CC
+    OC_UB = 8000.0     # over-contract UB: large constant for load-uncertainty scenarios
 
     # ── Decision variables ─────────────────────────────────────
     # For each repday d and scenario omega:
@@ -172,7 +184,8 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
     d_seg = {}   # (rid, t, k) discharge in segment k
 
     # Month max-demand: D_m^A per calendar month (NOT weighted average of daily peaks)
-    D_m = {m: m_model.addVar(lb=0, ub=CC * 1.3, name=f"Dm_{m}") for m in months}
+    # UB = large constant (not relative to CC) to accommodate load uncertainty scenarios
+    D_m = {m: m_model.addVar(lb=0, ub=12000.0, name=f"Dm_{m}") for m in months}
 
     # Over-contract per month
     OC_m_lo = {m: m_model.addVar(lb=0, ub=OC_UB, name=f"OClo_{m}") for m in months}
@@ -208,7 +221,7 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
                 P_pv_load[(rid, sid, t)]  = m_model.addVar(lb=0, ub=pv_arr[t],   name=f"Ppvl_{rid}_{sid}_{t}")
                 P_pv_ch[(rid, sid, t)]    = m_model.addVar(lb=0, ub=pv_arr[t],   name=f"Ppvc_{rid}_{sid}_{t}")
                 P_pv_curt[(rid, sid, t)]  = m_model.addVar(lb=0, ub=pv_arr[t],   name=f"Ppvcurt_{rid}_{sid}_{t}")
-                P_grid_load[(rid, sid, t)]= m_model.addVar(lb=0, ub=load_arr[t], name=f"Pgl_{rid}_{sid}_{t}")
+                P_grid_load[(rid, sid, t)]= m_model.addVar(lb=0, ub=12000.0,      name=f"Pgl_{rid}_{sid}_{t}")
                 P_grid_ch[(rid, sid, t)]  = m_model.addVar(lb=0, ub=P_B,         name=f"Pgc_{rid}_{sid}_{t}")
                 E_s[(rid, sid, t)]        = m_model.addVar(lb=E_MIN, ub=E_MAX,    name=f"E_{rid}_{sid}_{t}")
                 E_g_s[(rid, sid, t)]      = m_model.addVar(lb=0,     ub=E_MAX,    name=f"Eg_{rid}_{sid}_{t}")
@@ -275,12 +288,9 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
                 m_model.addConstr(E_g_s[(rid, sid, t)] >= 0)
                 m_model.addConstr(E_g_s[(rid, sid, t)] <= E_s[(rid, sid, t)])
 
-                # Grid import tied to demand kappa proxy (§CP_006)
-                m_model.addConstr(
-                    P_grid_load[(rid, sid, t)] + P_grid_ch[(rid, sid, t)]
-                    <= CC * kappa,
-                    name=f"cc_{rid}_{sid}_{t}"
-                )
+                # CC is a billing threshold, not a hard physical limit (§CP_006).
+                # Overcontract is penalised via D_m^A and OC_m billing terms.
+                # No hard per-hour grid-import constraint here.
 
                 # Month-aware max demand D_m^A (only for repdays in this month)
                 if rid in month_repdays.get(rd["month_id"], set()):
@@ -306,13 +316,14 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
             m_model.addConstr(E_s[(rid, sid, 23)] >= (soc_init - eps_term) * E_B)
             m_model.addConstr(E_s[(rid, sid, 23)] <= (soc_init + eps_term) * E_B)
 
-    # Over-contract: D_m^A vs CC
+    # Over-contract billing tiers (§CP_013):
+    #   lo tier: max(0, D_m - CC)    capped at OC_band (0–10% overcontract)
+    #   hi tier: max(0, D_m - CC - OC_band) (>10% overcontract)
+    # lb=0 + minimisation = natural max(0, ...) enforcement
     for m in months:
         OC_band = CC * 0.1
-        m_model.addConstr(OC_m_lo[m] >= D_m[m] - CC - OC_band)
-        m_model.addConstr(OC_m_hi[m] >= D_m[m] - CC)
-        m_model.addConstr(OC_m_lo[m] <= D_m[m])
-        m_model.addConstr(OC_m_hi[m] <= D_m[m])
+        m_model.addConstr(OC_m_lo[m] >= D_m[m] - CC)
+        m_model.addConstr(OC_m_hi[m] >= D_m[m] - CC - OC_band)
 
     # ── Objective J_A(x) ──────────────────────────────────────
     crf_bess = _crf(CFG['discount_rate'], CFG['lifetime_bess'])
@@ -351,21 +362,25 @@ def evaluate_design(x_design, repday_df, weights_df, meta_df, cal_map,
                 E_pv_self_yr.addTerms(w * pi, P_pv_load[(rid, sid, t)])
                 E_dis_g_yr.addTerms(w * pi,   P_dis[(rid, t)])
 
-        # Basic charge (per month × weight proxy: weight/30 months represented)
-        # Note: each repday has a weight (# calendar days); monthly charge is billed monthly
-        # We proxy monthly charge from the D_m^A for this repday's month
-        # The calendar_to_repday_map provides the true month scope
-        C_basic.add(w * c_b * D_m[m])
+        # (Basic charge is billed monthly — computed per-month below, not per-repday)
 
         # Degradation cost
         for t in range(24):
             for k in range(n_seg):
                 C_deg.addTerms(w * lam_k[k], d_seg[(rid, t, k)])
 
+    # Basic charge: once per calendar month × monthly max demand D_m^A
+    # Summer billing months: Jun–Sep (6,7,8,9) use summer rate; others use non-summer
+    SUMMER_BILLING_MONTHS = {5, 6, 7, 8, 9, 10}  # Taiwan Taipower summer billing
+    for m in months:
+        c_b_m = c_basic_s if m in SUMMER_BILLING_MONTHS else c_basic_ns
+        C_basic.add(c_b_m * D_m[m])
+
     # Over-contract annual cost
     for m in months:
-        C_over.addTerms(m_oc10  * c_basic_s,  OC_m_lo[m])
-        C_over.addTerms(m_oc10p * c_basic_s,  OC_m_hi[m])
+        c_b_oc = c_basic_s if m in SUMMER_BILLING_MONTHS else c_basic_ns
+        C_over.addTerms(m_oc10  * c_b_oc, OC_m_lo[m])
+        C_over.addTerms(m_oc10p * c_b_oc, OC_m_hi[m])
 
     # T-REC shortfall
     E_TREC = re_tgt * E_load_yr - E_pv_self_yr - E_dis_g_yr
@@ -434,9 +449,10 @@ def run_layer_a(case_id, manifest_path, bridge_dir=None, output_dir=None):
     if output_dir:
         CFG['output_dir'] = output_dir
 
-    C_grid = manifest["C_grid"]
-    P_grid = manifest["P_grid"]
-    E_grid = manifest["E_grid"]
+    csets  = manifest.get("candidate_sets", manifest)
+    C_grid = csets["C_grid"]
+    P_grid = csets["P_grid"]
+    E_grid = csets["E_grid"]
     total  = len(C_grid) * len(P_grid) * len(E_grid)
     print(f"  X_grid size: {len(C_grid)} CC × {len(P_grid)} PB × {len(E_grid)} EB = {total} candidates")
 

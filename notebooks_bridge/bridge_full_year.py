@@ -25,7 +25,7 @@ from pathlib import Path
 import json, datetime
 
 # ── Configuration ────────────────────────────────────────────
-CASE_YEAR_START = "2024-10-01"   # spec: 2024/10 – 2025/10
+CASE_YEAR_START = "2024-11-01"   # data available from 2024-11-01 (spec ideal: 2024-10-01)
 CASE_YEAR_END   = "2025-10-31"
 TZ = "Asia/Taipei"
 
@@ -57,7 +57,7 @@ SUMMER_END_MD   = (10, 15)
 ROOT        = Path(__file__).resolve().parent.parent
 DATA_CSV    = ROOT / "NTUST_Load_PV.csv"
 DATA_OLD_XLS = ROOT / "Project_Archive_Prediction_Final" / "data" / "raw" / "NTUST_Load_merged_fixed_v2.xlsx"
-USE_OLD_LOAD = True
+USE_OLD_LOAD = False  # old Excel not present; use NTUST_Load_PV.csv Load_kWh directly
 SCENARIO_PQ = ROOT / "pipeline_outputs" / "scenarios_joint_pv_load_reduced_5.parquet"
 PV_DET_PQ   = ROOT / "pipeline_outputs" / "pv_point_forecast_caseyear.parquet"
 OUT_DIR     = ROOT / "bridge_outputs_fullyear"
@@ -522,6 +522,7 @@ def run_bridge():
         "cpfi_prob_1_0_pass":      cpfi_prob_ok,
         "cpfi_truth_isolation_pass": cpfi_truth_isolation,
         "pkg_scenario_counts":     pkg_scenario_counts,
+        "pkg_scenario_counts_note": "Pre-reduction counts. C3 rolling DA is further reduced to 10 by scenario_reduction.py.",
         "rolling_packages_written": list(ROLLING_PACKAGES.keys()) + [
             "rolling_da_input_pvperfect_loadperfect.parquet"
         ],

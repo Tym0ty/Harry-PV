@@ -119,6 +119,15 @@ def stage2a_layer_a(cases):
                 "AEC_inv_M": round(r.get("AEC_inv", 0) / 1e6, 3),
             })
     if rows:
+        # Extend rows with full cost breakdown from design JSON
+        for row in rows:
+            cid = row["case_id"]
+            d   = design_results.get(cid, {}) or {}
+            row["C_energy_A_M"] = round(d.get("C_energy_A", 0) / 1e6, 3)
+            row["C_deg_A_M"]    = round(d.get("C_deg_A",    0) / 1e6, 3)
+            row["C_basic_A_M"]  = round(d.get("C_basic_A",  0) / 1e6, 3)
+            row["C_over_A_M"]   = round(d.get("C_over_A",   0) / 1e6, 3)
+            row["C_TREC_A_M"]   = round(d.get("C_TREC_A",   0) / 1e6, 3)
         pd.DataFrame(rows).to_csv(MILP_OUT / "design_results_master.csv", index=False)
         print("\n=== DESIGN RESULTS MASTER ===")
         print(pd.DataFrame(rows).to_string(index=False))
@@ -217,6 +226,46 @@ def stage3_reporting(design_results, replay_summaries):
         print(f"  → {'Probabilistic PV REDUCES annual cost' if diff < 0 else 'Deterministic PV performs as well or better'}")
     if cpfi:
         print(f"  C_PFI (Upper bound): {cpfi['replay_total_NTD']/1e6:.3f} M NTD")
+
+    # Merge replay columns into design_results_master.csv
+    design_master_path = MILP_OUT / "design_results_master.csv"
+    if design_master_path.exists() and replay_rows:
+        dm = pd.read_csv(design_master_path)
+        # Add replay columns to design master (keyed on case_id)
+        replay_cols = ["replay_total_M", "replay_opex_M", "basic_M",
+                       "overcontract_M", "energy_M", "deg_M", "trec_M",
+                       "RE_pct", "trec_shortfall_kwh", "n_overcontract_months"]
+        # Build replay supplement from JSON files (has deg_M + trec_shortfall_kwh)
+        supp_rows = []
+        for cid2, s in replay_summaries.items():
+            if s:
+                supp_rows.append({
+                    "case_id":            cid2,
+                    "replay_total_M":     round(s["replay_total_NTD"] / 1e6, 3),
+                    "replay_opex_M":      round(s.get("replay_opex_NTD", 0) / 1e6, 3),
+                    "basic_M":            round(s["basic_NTD"] / 1e6, 3),
+                    "overcontract_M":     round(s["overcontract_NTD"] / 1e6, 3),
+                    "energy_M":           round(s["energy_NTD"] / 1e6, 3),
+                    "deg_M":              round(s.get("deg_NTD", 0) / 1e6, 3),
+                    "trec_M":             round(s["trec_NTD"] / 1e6, 3),
+                    "RE_pct":             round(s["RE_pct"], 2),
+                    "trec_shortfall_kwh": round(s.get("trec_shortfall_kwh", 0), 1),
+                    "n_overcontract_months": s["n_overcontract_months"],
+                })
+        supp = pd.DataFrame(supp_rows)
+        # Drop any existing replay columns from dm to avoid duplication
+        dm = dm.drop(columns=[c for c in replay_cols if c in dm.columns], errors='ignore')
+        dm = dm.merge(supp, on="case_id", how="left")
+        dm.to_csv(design_master_path, index=False)
+        print(f"  Updated {design_master_path.name} with replay columns ({len(dm)} cases, {len(dm.columns)} cols)")
+
+    # Stage 3 final: generate thesis figures
+    print("\n--- Thesis Figures ---")
+    try:
+        import milp_figures_fullyear
+        milp_figures_fullyear.main()
+    except Exception as exc:
+        print(f"  [WARN] Figure generation failed: {exc}")
 
 
 # ──────────────────────────────────────────────────────────────

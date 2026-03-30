@@ -5,7 +5,7 @@
   "_note": "This file is read by milp_layer_a.py before any solve. All candidate sets and frozen parameters must be set here.",
 
   "formal_case_year": {
-    "start": "2024-10-01",
+    "start": "2024-11-01",
     "end":   "2025-10-31",
     "timezone": "Asia/Taipei",
     "hour_convention": "hour_local 1..24"

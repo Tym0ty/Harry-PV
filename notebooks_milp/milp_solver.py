@@ -502,7 +502,7 @@ def build_and_solve(day_data, day_indices, scenario_ids, CFG, case_id="C0", cc_u
         return None
 
 
-def replay(sizing, truth_df, calendar_df, CFG, case_id="C0", no_re20=False):
+def replay(sizing, truth_df, calendar_df, CFG, case_id="C0", no_re20=False, save_dispatch=False, output_dir=None):
     """Fixed-design replay using truth data.
 
     Args:
@@ -729,5 +729,50 @@ def replay(sizing, truth_df, calendar_df, CFG, case_id="C0", no_re20=False):
 
     print(f"  Replay {case_id}: total={replay_total/1e6:.2f}M, RE={re_pct:.1f}%, "
           f"over_months={over_months}, worst_bill={worst_bill/1e6:.2f}M")
+
+    # Save dispatch data if requested (for ch4 dispatch figures)
+    if save_dispatch and output_dir is not None:
+        import os
+        from pathlib import Path
+        from milp_common import get_tou_price
+        dispatch_rows = []
+        for di in day_indices:
+            cal = cal_lookup.loc[di]
+            cd = pd.Timestamp(cal['calendar_day'])
+            dow = cd.weekday()
+            mo = int(cal['month_id'])
+            for t in range(n_hours):
+                h_local = t + 1
+                pv_t, load_t = truth_lookup.get((di, h_local), (0.0, 0.0))
+                key = (di, t)
+                tou_h = get_tou_price(cd.month, cd.day, dow, t)
+                dispatch_rows.append({
+                    'day_index': di,
+                    'calendar_day': cd.date(),
+                    'hour_local': h_local,
+                    'pv_realized_kw': pv_t,
+                    'load_realized_kw': load_t,
+                    'grid_import_kw': P_grid_load[key].X + P_grid_ch[key].X,
+                    'grid_load_kw': P_grid_load[key].X,
+                    'grid_ch_kw': P_grid_ch[key].X,
+                    'bess_ch_kw': P_ch[key].X,
+                    'bess_dis_kw': P_dis[key].X,
+                    'pv_to_load_kw': P_pv_load[key].X,
+                    'pv_to_bess_kw': P_pv_ch[key].X,
+                    'pv_curtailed_kw': P_pv_curt[key].X,
+                    'soc_end_kwh': E_soc[key].X,
+                    'green_soc_kwh': E_g[key].X,
+                    'tou_price': tou_h,
+                    'month_id': mo,
+                    'day_type': str(cal['day_type']),
+                    'season_tag': str(cal['season_tag']),
+                    'over_contract_kw': max(0.0, (P_grid_load[key].X + P_grid_ch[key].X) * kappa - cc_val),
+                })
+        dispatch_df = pd.DataFrame(dispatch_rows)
+        dispatch_df['calendar_day'] = pd.to_datetime(dispatch_df['calendar_day'])
+        out_path = Path(output_dir) / f"dispatch_replay_{case_id}.parquet"
+        dispatch_df.to_parquet(out_path, index=False)
+        result['dispatch_saved'] = str(out_path)
+        print(f"  Dispatch saved: {out_path.name} ({len(dispatch_df)} rows)")
 
     return result

@@ -1,0 +1,8 @@
+gate,result,detail
+probability_check,PASS,K=5 scenario probabilities sum to 1.0 per day
+completeness_24h,PASS,All 365 days have 24 hourly rows
+truth_solve_segregation,PASS,Realized (truth) load/PV kept separate from solve scenarios
+n_admissible_days,PASS,365 days (0 excluded)
+schema_version,PASS,full_year_v2
+load_source,PASS,padil_NTUST_Load_PV.csv
+load_uncertainty_mode,PASS,"K_scenarios_pieter_mape: summer=0.1145, fall=0.1466, winter=0.1218, spring=0.1229"

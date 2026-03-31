@@ -1,0 +1,19 @@
+{
+  "total_runs": 150,
+  "successful_runs": 118,
+  "time_limit_hits": 32,
+  "note_k15": "K=15 runs systematically hit 120s time limit; excluded from analysis",
+  "C1_N_saturation_K5": 250,
+  "C1_N500_K5_replay_M": 97.297,
+  "C1_N100_K5_replay_M": 97.313,
+  "C1_sufficient_K_N500": 5,
+  "C1_sufficient_N": 250,
+  "C1_sufficient_K": 5,
+  "C3_N_saturation_K5": 250,
+  "C3_N500_K5_replay_M": 97.25,
+  "C3_N100_K5_replay_M": 97.227,
+  "C3_sufficient_K_N500": 5,
+  "C3_sufficient_N": 250,
+  "C3_sufficient_K": 5,
+  "conclusion": "N=500, K=5 is sufficient: <0.1% change from N=250 to N=500 at K=5. K>=10 may require longer time limits."
+}

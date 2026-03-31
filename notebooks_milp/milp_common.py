@@ -3,7 +3,9 @@ Full-Year Direct Solve MILP — Shared config, data loading, TOU, results.
 
 Per FF0326Harry_MILP_Engineering_Spec_FullYear_Formal_vfinal.
 Cases: C0 (det PV + det load), C1 (prob PV + det load),
-       C2 (det PV + pert load), C3 (prob PV + pert load).
+       C2 (det PV + loadunc), C3 (prob PV + loadunc).
+Updated 2026-03-31: C2/C3 now use loadunc (K-scenario load uncertainty)
+instead of loadpert (single-path perturbation), per 0331_bridge_SPEC.
 """
 import numpy as np
 import pandas as pd
@@ -142,10 +144,23 @@ CASE_TABLE = [
      "pv_mode": "det", "load_mode": "det", "label": "Det PV + Det Load"},
     {"case_id": "C1", "ingest_file": "full_year_milp_ingest_pvprob_loaddet.parquet",
      "pv_mode": "prob", "load_mode": "det", "label": "Prob PV + Det Load"},
+    # C2/C3 updated to loadunc (K-scenario Pieter MAPE) per 0331_bridge_SPEC
+    {"case_id": "C2", "ingest_file": "full_year_milp_ingest_pvdet_loadunc.parquet",
+     "pv_mode": "det", "load_mode": "unc", "label": "Det PV + Load Unc"},
+    {"case_id": "C3", "ingest_file": "full_year_milp_ingest_pvprob_loadunc.parquet",
+     "pv_mode": "prob", "load_mode": "unc", "label": "Prob PV + Load Unc"},
+]
+
+# Legacy case table using loadpert (kept for comparison)
+CASE_TABLE_LOADPERT = [
+    {"case_id": "C0", "ingest_file": "full_year_milp_ingest_pvdet_loaddet.parquet",
+     "pv_mode": "det", "load_mode": "det", "label": "Det PV + Det Load"},
+    {"case_id": "C1", "ingest_file": "full_year_milp_ingest_pvprob_loaddet.parquet",
+     "pv_mode": "prob", "load_mode": "det", "label": "Prob PV + Det Load"},
     {"case_id": "C2", "ingest_file": "full_year_milp_ingest_pvdet_loadpert.parquet",
-     "pv_mode": "det", "load_mode": "pert", "label": "Det PV + Pert Load"},
+     "pv_mode": "det", "load_mode": "pert", "label": "Det PV + Pert Load (legacy)"},
     {"case_id": "C3", "ingest_file": "full_year_milp_ingest_pvprob_loadpert.parquet",
-     "pv_mode": "prob", "load_mode": "pert", "label": "Prob PV + Pert Load"},
+     "pv_mode": "prob", "load_mode": "pert", "label": "Prob PV + Pert Load (legacy)"},
 ]
 
 

@@ -1,0 +1,22 @@
+figure_id,chapter_section,title,research_question,case_scope,time_scope,source_script,data_file,png_file,notes
+B-F1,3.3,Raw vs Reduced PV Scenario Trajectories,Does K-medoid reduction preserve the scenario distribution?,"C1,C3",2 representative days,ch4_results.py,results/ch4/data/B-F1_data.csv,results/ch4/figures/B-F1.png,"Summer day: 2025-07-02, Winter day: 2024-11-01"
+B-F2,3.3,Reduced Scenario Probability Weights,How are scenario probabilities assigned by K-medoid?,"C1,C3",2 representative days,ch4_results.py,results/ch4/data/B-F2_data.csv,results/ch4/figures/B-F2.png,K-medoid probability assigned proportional to cluster size
+B-F3,4.2,Prob PV Scenario Fan — Representative Summer Day,Does probabilistic PV improve dispatch vs deterministic?,C1,1 day,ch4_results.py,results/ch4/data/B-F3_data.csv,results/ch4/figures/B-F3.png,"Shown day: 2025-07-12, highest scenario variance"
+B-F4,4.2,Load Uncertainty K-Scenario Fan,How does load uncertainty affect dispatch reliability?,"C2,C3",1 day (summer weekday),ch4_results.py,results/ch4/data/B-F4_data.csv,results/ch4/figures/B-F4.png,K=5 load paths from Pieter seasonal MAPE
+M-F1,4.3,BESS Sizing Comparison — C0–C3 + PI,How does uncertainty treatment affect optimal sizing?,"C0,C1,C2,C3,PI",Full year,ch4_results.py,results/ch4/data/M-F1_data.csv,results/ch4/figures/M-F1.png,
+M-F2,4.3,Solve-World Cost Stacked Bar,What drives total annual cost in each case?,"C0,C1,C2,C3,PI",Full year,ch4_results.py,results/ch4/data/M-F2_data.csv,results/ch4/figures/M-F2.png,
+R-F1,4.4,Replay Annual Total Cost — All Cases,Does uncertainty modelling improve realized cost?,"C0,C1,C2,C3,PI",Full year,ch4_results.py,results/ch4/data/R-F1_data.csv,results/ch4/figures/R-F1.png,
+R-F2,4.4,Over-Contract Fee & Worst Month Bill,Which case minimizes demand-charge risk?,"C0,C1,C2,C3,PI",Full year,ch4_results.py,results/ch4/data/R-F2_data.csv,results/ch4/figures/R-F2.png,
+R-F3,4.4,RE20 Compliance & T-REC Volume,How much T-REC procurement is required?,"C0,C1,C2,C3,PI",Full year,ch4_results.py,results/ch4/data/R-F3_data.csv,results/ch4/figures/R-F3.png,
+R-F4,4.4,Monthly Bill Breakdown — All Cases,Which months drive peak billing?,"C0,C1,C2,C3",12 months,ch4_results.py,results/ch4/data/R-F4_data.csv,results/ch4/figures/R-F4.png,
+R-F5,4.4,Design-to-Replay Gap (%),How conservative is each design vs realized cost?,"C0,C1,C2,C3,PI",Full year,ch4_results.py,results/ch4/data/R-F5_data.csv,results/ch4/figures/R-F5.png,
+C-F1,4.5,5-Day Dispatch Trace: C0 vs C1,How do C0 and C1 dispatch strategies differ?,"C0,C1",5 days (July high-variance),ch4_results.py,results/ch4/data/C-F1_data.csv,results/ch4/figures/C-F1.png,Selected days: 2025-06-30 to 2025-07-04
+C-F2-C0,4.5,48h Stress Window Dispatch — C0,What is the worst-case 48h dispatch?,C0,48h (auto-selected worst month),ch4_results.py,,results/ch4/figures/C-F2-C0.png,"Worst month=9, start=2025-09-22"
+C-F3-C0,4.5,48h Stress Window Multi-Panel — C0,Detailed dispatch analysis during peak demand period,C0,48h,ch4_results.py,,results/ch4/figures/C-F3-C0.png,"Month=9, 4-panel publication version"
+C-F2-C1,4.5,48h Stress Window Dispatch — C1,What is the worst-case 48h dispatch?,C1,48h (auto-selected worst month),ch4_results.py,,results/ch4/figures/C-F2-C1.png,"Worst month=9, start=2025-09-22"
+C-F3-C1,4.5,48h Stress Window Multi-Panel — C1,Detailed dispatch analysis during peak demand period,C1,48h,ch4_results.py,,results/ch4/figures/C-F3-C1.png,"Month=9, 4-panel publication version"
+L-F1,4.6,Load Uncertainty Impact — C2 vs C3 vs baseline,Does adding load uncertainty improve dispatch robustness?,"C0,C1,C2,C3",Full year,ch4_results.py,results/ch4/data/L-F1_data.csv,results/ch4/figures/L-F1.png,
+S-F1,4.7,Sensitivity Heatmap — replay_total_mean,What N and K are sufficient?,"C1,C3",Full year,ch4_results.py,,results/ch4/figures/S-F1.png,Metric: replay_total_mean
+S-F2,4.7,Sensitivity Heatmap — replay_total_std,What N and K are sufficient?,"C1,C3",Full year,ch4_results.py,,results/ch4/figures/S-F2.png,Metric: replay_total_std
+S-F3,4.7,Sensitivity Heatmap — replay_total_mean,What N and K are sufficient?,"C1,C3",Full year,ch4_results.py,,results/ch4/figures/S-F3.png,Metric: replay_total_mean
+S-F4,4.7,Design Stability vs N,How stable is sizing as N increases?,"C1,C3",Full year,ch4_results.py,,results/ch4/figures/S-F4.png,

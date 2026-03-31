@@ -1,0 +1,26 @@
+K_grid:
+- 3
+- 5
+- 7
+- 10
+- 15
+N_grid:
+- 100
+- 250
+- 500
+- 1000
+- 2000
+R_replicates: 3
+bootstrap_for_N_gt_500: true
+cases:
+- C1
+- C3
+load_unc_mape:
+  fall: 0.1466
+  spring: 0.1229
+  summer: 0.1145
+  winter: 0.1218
+master_pool_size: 500
+mip_gap: 0.005
+pv_scale_factor: 53.74
+time_limit_s: 120

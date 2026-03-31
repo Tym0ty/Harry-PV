@@ -1,0 +1,8 @@
+table_id,chapter_section,title,case_scope,csv_file,notes
+B-T1,3.4,Bridge Annual Package Completeness,All,results/ch4/tables/B-T1.csv,
+B-T2,3.4,Bridge QA Gate Summary,All,results/ch4/tables/B-T2.csv,
+M-T1,4.3,BESS Sizing + Contract Capacity Results,"C0–C3,PI",results/ch4/tables/M-T1.csv,
+M-T2,4.3,Solve-World Annual Cost Breakdown,"C0–C3,PI",results/ch4/tables/M-T2.csv,
+R-T1,4.4,Replay Annual Cost Summary,"C0–C3,PI",results/ch4/tables/R-T1.csv,
+L-T1,4.6,Incremental Value of Load Uncertainty,C0–C3,results/ch4/tables/L-T1.csv,
+S-T1,4.7,N×K Sufficiency Decision Table,"C1,C3",results/ch4/tables/S-T1.csv,

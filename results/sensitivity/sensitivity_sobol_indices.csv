@@ -1,0 +1,5 @@
+case,parameter,pearson_r,pearson_p,eta2_approx
+C1,log_N,-0.0006,0.9977,0.0
+C1,K,0.8345,0.0,0.6963
+C3,log_N,-0.0262,0.901,0.0007
+C3,K,0.8731,0.0,0.7623

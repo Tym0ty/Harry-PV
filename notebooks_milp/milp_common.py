@@ -140,14 +140,14 @@ def get_config():
 # ──────────────────────────────────────────────────────────────
 
 CASE_TABLE = [
-    {"case_id": "C0", "ingest_file": "full_year_milp_ingest_pvdet_loaddet.parquet",
+    # Rolling day-ahead packages (rolling_da_v1 spec — for Layer B sequential day-ahead MILP)
+    {"case_id": "C0", "ingest_file": "rolling_da_input_pvdet_loaddet.parquet",
      "pv_mode": "det", "load_mode": "det", "label": "Det PV + Det Load"},
-    {"case_id": "C1", "ingest_file": "full_year_milp_ingest_pvprob_loaddet.parquet",
+    {"case_id": "C1", "ingest_file": "rolling_da_input_pvprob_loaddet.parquet",
      "pv_mode": "prob", "load_mode": "det", "label": "Prob PV + Det Load"},
-    # C2/C3 updated to loadunc (K-scenario Pieter MAPE) per 0331_bridge_SPEC
-    {"case_id": "C2", "ingest_file": "full_year_milp_ingest_pvdet_loadunc.parquet",
+    {"case_id": "C2", "ingest_file": "rolling_da_input_pvdet_loadunc.parquet",
      "pv_mode": "det", "load_mode": "unc", "label": "Det PV + Load Unc"},
-    {"case_id": "C3", "ingest_file": "full_year_milp_ingest_pvprob_loadunc.parquet",
+    {"case_id": "C3", "ingest_file": "rolling_da_input_pvprob_loadunc.parquet",
      "pv_mode": "prob", "load_mode": "unc", "label": "Prob PV + Load Unc"},
 ]
 
@@ -208,9 +208,11 @@ def load_data(CFG, case):
             s_data = d_ingest[d_ingest['scenario_id'] == sid].sort_values('hour_local')
             if len(s_data) == 0:
                 continue
+            # Support both rolling_da_input (load_input_kw) and legacy (load_kw) schemas
+            load_col = 'load_input_kw' if 'load_input_kw' in s_data.columns else 'load_kw'
             scenarios.append({
                 'pv_kw': s_data['pv_available_kw'].values,
-                'load_kw': s_data['load_kw'].values,
+                'load_kw': s_data[load_col].values,
                 'prob': float(s_data['probability_pi'].iloc[0]),
                 'scenario_id': sid,
             })

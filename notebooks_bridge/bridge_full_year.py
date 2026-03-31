@@ -409,19 +409,40 @@ def run_bridge():
         df["calendar_day"] = pd.to_datetime(df["calendar_day"])
         return df
 
-    packages = {
-        # Original packages (preserved for legacy comparison)
+    # Rolling day-ahead packages (rolling_da_v1 spec — 0331_bridge_SPEC_final)
+    # These are the 4 formal mainline cases for Layer B sequential day-ahead MILP.
+    # Named rolling_da_input_* to satisfy the rolling day-ahead naming contract.
+    rolling_packages = {
         "pvdet_loaddet":  ("pv_det",  "load_det"),
         "pvprob_loaddet": ("pv_prob", "load_det"),
-        "pvdet_loadpert": ("pv_det",  "load_pert"),
-        "pvprob_loadpert":("pv_prob", "load_pert"),
-        # New spec-compliant loadunc packages (0331_bridge_SPEC §5)
         "pvdet_loadunc":  ("pv_det",  "load_unc"),
         "pvprob_loadunc": ("pv_prob", "load_unc"),
     }
 
-    for name, (pv_m, load_m) in packages.items():
-        print(f"  Building {name}...")
+    for name, (pv_m, load_m) in rolling_packages.items():
+        print(f"  Building rolling_da_input_{name}...")
+        df = build_ingest(pv_m, load_m)
+        # Add day-ahead gate timing columns (D-1 20:00 local gate)
+        df["issue_day"] = pd.to_datetime(df["calendar_day"]) - pd.Timedelta(days=1)
+        df["gate_time_local"] = "20:00"
+        # Rename load_kw → load_input_kw per rolling_da schema
+        df = df.rename(columns={"load_kw": "load_input_kw"})
+        out_path = OUT_DIR / f"rolling_da_input_{name}.parquet"
+        df.to_parquet(out_path, index=False)
+        print(f"    → {out_path.name}: {len(df)} rows")
+
+    # Legacy full-year direct-solve packages (kept for Layer A reference)
+    legacy_packages = {
+        "pvdet_loaddet":  ("pv_det",  "load_det"),
+        "pvprob_loaddet": ("pv_prob", "load_det"),
+        "pvdet_loadpert": ("pv_det",  "load_pert"),
+        "pvprob_loadpert":("pv_prob", "load_pert"),
+        "pvdet_loadunc":  ("pv_det",  "load_unc"),
+        "pvprob_loadunc": ("pv_prob", "load_unc"),
+    }
+
+    for name, (pv_m, load_m) in legacy_packages.items():
+        print(f"  Building full_year_milp_ingest_{name} (legacy)...")
         df = build_ingest(pv_m, load_m)
         out_path = OUT_DIR / f"full_year_milp_ingest_{name}.parquet"
         df.to_parquet(out_path, index=False)
@@ -485,13 +506,13 @@ def run_bridge():
     # ── B7: QA and metadata ──────────────────────────────────
     print("B7: QA and metadata...")
 
-    # Check probability sums for probabilistic packages
-    prob_pkg = pd.read_parquet(OUT_DIR / "full_year_milp_ingest_pvprob_loaddet.parquet")
+    # Check probability sums for probabilistic packages (use rolling_da package)
+    prob_pkg = pd.read_parquet(OUT_DIR / "rolling_da_input_pvprob_loaddet.parquet")
     prob_check = prob_pkg.groupby(["day_index", "hour_local"])["probability_pi"].sum()
     prob_ok = np.allclose(prob_check.values, 1.0, atol=1e-6)
 
-    # Check 24h completeness
-    det_pkg = pd.read_parquet(OUT_DIR / "full_year_milp_ingest_pvdet_loaddet.parquet")
+    # Check 24h completeness (use rolling_da package)
+    det_pkg = pd.read_parquet(OUT_DIR / "rolling_da_input_pvdet_loaddet.parquet")
     hours_per_day = det_pkg.groupby("day_index")["hour_local"].nunique()
     completeness_ok = (hours_per_day == 24).all()
 
@@ -509,13 +530,13 @@ def run_bridge():
         "perturbation_mode_summary": f"billing={BILLING_MULT}, non-billing={NON_BILLING_MULT}",
         "load_unc_mape": LOAD_UNC_MAPE,
         "load_source_v2": str(DATA_PADIL.name),
-        "schema_version": "full_year_v2",
+        "schema_version": "rolling_da_v1",
     }
     with open(OUT_DIR / "bridge_full_year_report.json", "w") as f:
         json.dump(report, f, indent=2)
 
     metadata = {
-        "bridge_version": "full_year_v2",
+        "bridge_version": "rolling_da_v1",
         "case_year_boundary": [CASE_YEAR_START, CASE_YEAR_END],
         "timezone": TZ,
         "pv_reference_kw": PV_REF_KW,
@@ -549,12 +570,13 @@ def run_bridge():
     print(f"  24h completeness: {'PASS' if completeness_ok else 'FAIL'}")
     print(f"  PV scale: {PV_SCALE:.2f}x (50kW → 2687kW)")
 
-    # Print package stats
-    for name in packages:
-        df = pd.read_parquet(OUT_DIR / f"full_year_milp_ingest_{name}.parquet")
+    # Print rolling_da package stats
+    for name in rolling_packages:
+        df = pd.read_parquet(OUT_DIR / f"rolling_da_input_{name}.parquet")
         pv_max = df["pv_available_kw"].max()
-        load_max = df["load_kw"].max()
-        print(f"  {name}: {len(df)} rows, PV max={pv_max:.0f} kW, Load max={load_max:.0f} kW")
+        load_col = "load_input_kw" if "load_input_kw" in df.columns else "load_kw"
+        load_max = df[load_col].max()
+        print(f"  rolling_da_{name}: {len(df)} rows, PV max={pv_max:.0f} kW, Load max={load_max:.0f} kW")
 
     return report
 

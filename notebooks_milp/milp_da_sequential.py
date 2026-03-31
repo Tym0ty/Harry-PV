@@ -193,6 +193,110 @@ def load_rolling_da_package(case):
     return day_data, sorted(day_indices)
 
 
+# ── Layer A summary (Fix 1 — surface Layer A results clearly) ────────────────
+
+def write_layer_a_summary():
+    """Write milp_outputs/da/layer_a_annual_design_results.csv.
+
+    Consolidates design variables, cost breakdown, solve time, and replay totals
+    for all 5 cases (C0–C3 + PI) from case_summary_fullyear.csv and
+    replay_summary_fullyear.csv so Layer A results are visible alongside Layer B.
+    """
+    design_path = MILP_OUT / "case_summary_fullyear.csv"
+    replay_path = MILP_OUT / "replay_summary_fullyear.csv"
+
+    if not design_path.exists():
+        print(f"  [Layer A summary] Skipped — {design_path.name} not found")
+        return
+
+    design = pd.read_csv(design_path)
+
+    cols = ["case", "CC_kw", "P_B_kw", "E_B_kwh", "ep_ratio",
+            "solve_obj_M", "solve_s",
+            "AEC_inv_M", "AEC_ene_M", "AEC_basic_M",
+            "AEC_over_M", "AEC_green_M", "AEC_deg_M", "re_pct"]
+
+    # Rename total_cost_M -> solve_obj_M for clarity
+    rename_map = {"total_cost_M": "solve_obj_M"}
+    if "contract_kw" in design.columns:
+        rename_map["contract_kw"] = "CC_kw"
+    if "bess_p_kw" in design.columns:
+        rename_map["bess_p_kw"] = "P_B_kw"
+    if "bess_e_kwh" in design.columns:
+        rename_map["bess_e_kwh"] = "E_B_kwh"
+    design = design.rename(columns=rename_map)
+
+    # Attach replay totals if available
+    if replay_path.exists():
+        replay = pd.read_csv(replay_path)
+        # Normalise case key: replay_summary_fullyear uses 'case_id'
+        if "case_id" in replay.columns and "case" not in replay.columns:
+            replay = replay.rename(columns={"case_id": "case"})
+        val_col = next((c for c in ["replay_total_M", "total_cost_M"] if c in replay.columns), None)
+        if val_col and "case" in replay.columns:
+            replay = replay[["case", val_col]].rename(columns={val_col: "replay_ann_M"})
+            design = design.merge(replay, on="case", how="left")
+            cols.append("replay_ann_M")
+
+    # Keep only available columns in order
+    out_cols = [c for c in cols if c in design.columns]
+    out_df = design[out_cols].copy()
+
+    OUT_DA.mkdir(parents=True, exist_ok=True)
+    out_path = OUT_DA / "layer_a_annual_design_results.csv"
+    out_df.to_csv(out_path, index=False)
+    print(f"  [Layer A summary] Written: {out_path.name}  ({len(out_df)} cases)")
+    print(out_df[["case", "CC_kw", "P_B_kw", "E_B_kwh", "solve_obj_M", "solve_s"]].to_string(index=False))
+
+
+# ── PI day-data builder (Fix 2 — PI as oracle forecast) ──────────────────────
+
+def build_pi_day_data():
+    """Build day_data for the PI (Perfect Information) case.
+
+    Uses realized truth as the single deterministic day-ahead forecast (prob=1.0).
+    This is the oracle / lower-bound benchmark: the solver sees perfect PV and load.
+    Returns same structure as load_rolling_da_package().
+    """
+    truth_df = pd.read_parquet(BRIDGE / "full_year_replay_truth_package.parquet")
+    calendar  = pd.read_parquet(BRIDGE / "caseyear_calendar_manifest.parquet")
+    cal_lookup = calendar.set_index("day_index")
+
+    day_data   = {}
+    day_indices = sorted(truth_df["day_index"].unique())
+
+    for di in day_indices:
+        d_df = truth_df[truth_df["day_index"] == di].sort_values("hour_local")
+        cal  = cal_lookup.loc[di]
+        cd   = pd.Timestamp(cal["calendar_day"])
+        dow  = cd.weekday()
+        tou  = np.array([get_tou_price(cd.month, cd.day, dow, t) for t in range(24)])
+
+        scenario = {
+            "scenario_id": "truth",
+            "pv_kw":   d_df["pv_realized_kw"].values.astype(float),
+            "load_kw": d_df["load_realized_kw"].values.astype(float),
+            "prob":    1.0,
+        }
+        day_data[di] = {
+            "calendar_day":    cd,
+            "month_id":        int(cal["month_id"]),
+            "season_tag":      cal["season_tag"],
+            "day_type":        cal["day_type"],
+            "is_holiday":      bool(cal["is_holiday"]),
+            "is_summer":       bool(cal["is_summer"]),
+            "scenarios":       [scenario],
+            "tou":             tou,
+            "dow":             dow,
+            "issue_day":       str((cd - pd.Timedelta(days=1)).date()),
+            "gate_time_local": "20:00",
+            "source_package":  "full_year_replay_truth_package.parquet",
+        }
+
+    print(f"  [PI] Built PI day-data from truth: {len(day_indices)} days, 1 scenario/day")
+    return day_data, day_indices
+
+
 # ── Load truth replay package ─────────────────────────────────────────────────
 
 def load_truth_package():
@@ -836,8 +940,12 @@ def run_case(case, CFG, da_time_limit=60, da_mip_gap=1e-3, verbose=True):
     sizing = load_layer_a_sizing(case_id)
     print(f"  Layer A sizing: CC={sizing['CC']:.1f} kW, P_B={sizing['P_B']:.1f} kW, E_B={sizing['E_B']:.1f} kWh")
 
-    # Load rolling day-ahead package
-    day_data, day_indices = load_rolling_da_package(case)
+    # Load rolling day-ahead package (or PI oracle package)
+    if case_id == "PI":
+        day_data, day_indices = build_pi_day_data()
+        print("  [PI] Oracle benchmark: realized truth used as forecast — no forecast error")
+    else:
+        day_data, day_indices = load_rolling_da_package(case)
 
     # Load truth
     truth_pkg = load_truth_package()
@@ -956,8 +1064,8 @@ def run_case(case, CFG, da_time_limit=60, da_mip_gap=1e-3, verbose=True):
 def main():
     parser = argparse.ArgumentParser(description="Layer B: Sequential Day-Ahead Daily MILP")
     parser.add_argument("--cases", nargs="+", default=["C0","C1","C2","C3"],
-                        choices=["C0","C1","C2","C3"],
-                        help="Cases to run (default: all)")
+                        choices=["C0","C1","C2","C3","PI"],
+                        help="Cases to run (default: all; PI = Perfect Information oracle)")
     parser.add_argument("--time-limit", type=int, default=60,
                         help="Gurobi time limit per daily MILP in seconds (default: 60)")
     parser.add_argument("--mip-gap",   type=float, default=1e-3,
@@ -966,7 +1074,13 @@ def main():
 
     CFG = get_config()
 
+    # Fix 1: always write Layer A summary on every run
+    write_layer_a_summary()
+
+    PI_CASE = {"case_id": "PI", "pv_mode": "det", "load_mode": "det",
+               "label": "Perfect Information (Oracle)"}
     case_map = {c["case_id"]: c for c in CASE_TABLE}
+    case_map["PI"] = PI_CASE
     summaries = []
 
     for case_id in args.cases:
@@ -978,8 +1092,17 @@ def main():
 
     # Aggregate comparison table
     if summaries:
-        comp_df = pd.DataFrame(summaries)
         comp_path = OUT_DA / "da_case_comparison.csv"
+        new_df = pd.DataFrame(summaries)
+        # Merge with existing rows so a partial run (e.g. --cases PI) doesn't
+        # lose the C0–C3 rows that were written in a previous run.
+        if comp_path.exists():
+            existing = pd.read_csv(comp_path)
+            run_ids  = set(new_df["case_id"].tolist())
+            existing = existing[~existing["case_id"].isin(run_ids)]
+            comp_df  = pd.concat([existing, new_df], ignore_index=True)
+        else:
+            comp_df = new_df
         comp_df.to_csv(comp_path, index=False)
         print(f"\n{'='*60}")
         print("Day-Ahead MILP — Case Comparison")

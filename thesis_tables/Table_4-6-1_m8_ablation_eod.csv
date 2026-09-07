@@ -1,0 +1,6 @@
+Configuration,Enabled Filters,SOC Band,Accept\%,F1 Rej.,F2 Rej.,F3 Rej.,F4 Rej.,Full Total (M NTD),\(\Delta\) vs M2 (kNTD)
+Baseline (M2 replay),"None (alpha=0, exact M2 replay)",10%,100.0\%,0,0,0,0,100.4855,+0.0
+Core-A: F1+F2,F1+F2,10%,99.2\%,21,48,0,0,100.0495,-436.0
+Core-B: F1+F2+F4,F1+F2+F4,10%,97.8\%,21,42,0,134,100.0589,-426.6
+FY1: All filters (10\% band),F1+F2+F3+F4,10%,71.5\%,40,435,1981,43,99.8872,-598.3
+FY2: All filters (15\% band) [REF],F1+F2+F3+F4,15%,74.3\%,50,100,2058,43,99.4300,-1055.5

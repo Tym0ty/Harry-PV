@@ -1,0 +1,3 @@
+﻿case,infeasible_steps,fallback_steps,solver_status_summary,solve_time_total_sec
+CCOR_V2_DET_SHIELD_m150_PVFOCUS_BASE,0,0,"{""2"": 8760}",132.58455681800842
+CCOR_V2_PROB_SHIELD_m150_PVFOCUS_LOWPV_SAFE_K5,0,0,"{""2"": 8760}",361.39754366874695

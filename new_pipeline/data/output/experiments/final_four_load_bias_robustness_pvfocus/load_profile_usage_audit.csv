@@ -1,0 +1,4 @@
+﻿load_profile_name,column,exists,annual_kwh,annual_pct_vs_base,max_load_kw,min_load_kw,negative_load_count,oc_risk_hours_gt_CC,near_oc_hours_gt_095CC,load_qn_used,random_load_error_used
+base,load_base_kw,True,21268438.0,0.0,5179.0,0.0,0,1412,1665,False,False
+structured_low,load_structured_low_kw,True,20335670.93,-4.385686762704433,4920.05,0.0,0,1175,1403,False,False
+structured_high,load_structured_high_kw,True,22201205.07,4.385686762704433,5437.95,0.0,0,1664,1944,False,False

@@ -1,0 +1,5 @@
+﻿Property,Ordinary K-medoids (R1),Contract-risk-preserving reduction (R3),Desired property
+Low-PV class inclusion ratio,0.053,1.000,1.00
+High-net-load class inclusion ratio,0.225,1.000,1.00
+Raw-pool peak preservation ratio,0.974,1.000,1.00
+Average representation error (standardized net-load distance),2.839,3.206,Lower is better

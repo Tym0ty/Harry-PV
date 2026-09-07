@@ -1,0 +1,25 @@
+{
+  "case_id": "DP_q50",
+  "CC_star": 3272.54,
+  "PB_star": 1089.68,
+  "EB_star": 6943.94,
+  "J_star_MNTD": 98.7818,
+  "cost_breakdown_MNTD": {
+    "AEC_inv": 6.4306,
+    "C_basic": 7.6676,
+    "C_over": 0.4027,
+    "C_TREC": 6.0738
+  },
+  "solve_metadata": {
+    "solver": "gurobi",
+    "mip_gap_achieved": 0.0,
+    "mip_gap_target": 0.005,
+    "solve_time_sec": 28.3,
+    "build_time_sec": 4.6,
+    "n_vars": 149337,
+    "n_binary": 8760,
+    "n_constraints": 184366,
+    "status": "Optimal",
+    "obj_val_NTD": 98781767.0
+  }
+}

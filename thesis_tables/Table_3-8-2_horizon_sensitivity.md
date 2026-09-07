@@ -1,0 +1,9 @@
+## Rolling-horizon window definitions used in sensitivity analysis.
+
+| Horizon Label     | Rule Type               | Interpretation                                                   | Role in Thesis        |
+|:------------------|:------------------------|:-----------------------------------------------------------------|:----------------------|
+| EOD (day-bounded) | Shrinking to end-of-day | Horizon contracts as day progresses; never extends past midnight | Baseline for M8       |
+| H=24              | Fixed 24-hour rolling   | 24 future slots at each re-dispatch; constant planning depth     | Main reported horizon |
+| H=48              | Fixed 48-hour rolling   | 48 future slots; tests stability under extended planning depth   | Robustness check      |
+
+*Note: The DA-only case (M1, M2) is horizon-independent; it is included in the main cost table for reference.*

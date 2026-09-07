@@ -1,0 +1,6 @@
+﻿mode,bridge_type,issue_count,scenario_count_min,scenario_count_max,weight_sum_min,weight_sum_max,min_weight,max_weight,effective_scenarios_mean,max_netload_kw,min_pv_kw,medoid_type_counts
+DA,PV_TKM_SAFE_K5_OLD,365,5,5,0.9999999999999999,1.0,0.008,0.828,3.8099139700296845,4910.1708984375,0.0,dct_risk_tail:826;high_netload_tail:365;typical:634
+DA,PV_TKM_LOWPV_SAFE_K5,365,5,5,0.9999999999999999,1.0,0.002,0.854,3.165353090623942,4910.1708984375,0.0,dct_risk_tail:365;high_netload_tail:365;low_pv_shortfall_tail:365;typical:730
+ID_H24,PV_TKM_SAFE_K5_OLD,8776,5,5,0.9999999999999999,1.0000000000000002,0.0,1.0,3.276267047399433,4798.11328125,0.0,dct_risk_tail:19048;high_netload_tail:8776;typical:16056
+ID_H24,PV_TKM_LOWPV_SAFE_K5,8776,5,5,0.9999999999999999,1.0000000000000002,0.0,1.0,2.9892910736015033,4798.11328125,0.0,dct_risk_tail:8776;high_netload_tail:8776;low_pv_shortfall_tail:8776;typical:17552
+ID_H24,PV_TKM_LOWPV_SAFE_K10,8776,10,10,0.9999999999999999,1.0,0.0,1.0,6.405254647816572,4798.11328125,0.0,dct_risk_tail:8776;high_netload_tail:8776;low_pv_shortfall_tail:8776;typical:61432

@@ -1,0 +1,25 @@
+{
+  "case_id": "DD",
+  "CC_star": 3262.41,
+  "PB_star": 1103.46,
+  "EB_star": 7176.83,
+  "J_star_MNTD": 99.47,
+  "cost_breakdown_MNTD": {
+    "AEC_inv": 6.62,
+    "C_basic": 7.6438,
+    "C_over": 0.4453,
+    "C_TREC": 6.3691
+  },
+  "solve_metadata": {
+    "solver": "gurobi",
+    "mip_gap_achieved": 0.0,
+    "mip_gap_target": 0.005,
+    "solve_time_sec": 27.2,
+    "build_time_sec": 4.8,
+    "n_vars": 149337,
+    "n_binary": 8760,
+    "n_constraints": 184366,
+    "status": "Optimal",
+    "obj_val_NTD": 99469965.0
+  }
+}

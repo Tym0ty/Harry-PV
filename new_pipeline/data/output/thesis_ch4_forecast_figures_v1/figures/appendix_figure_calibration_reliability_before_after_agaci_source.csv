@@ -1,0 +1,9 @@
+﻿subset,method,nominal,empirical
+Overall,Raw Q2_LG,80,75.05
+Overall,Raw Q2_LG,90,92.67
+Overall,AgACI Q2_LG,80,79.81
+Overall,AgACI Q2_LG,90,89.74
+TOU_1621,Raw Q2_LG,80,76.99
+TOU_1621,Raw Q2_LG,90,95.57
+TOU_1621,AgACI Q2_LG,80,78.69
+TOU_1621,AgACI Q2_LG,90,84.45

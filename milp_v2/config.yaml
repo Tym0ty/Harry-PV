@@ -1,0 +1,128 @@
+# milp_v2/config.yaml
+# New MILP architecture — 2x2 case matrix (DD/DP/PD/PP/PI)
+# Layer A: full-year annual MILP (CC/PB/EB as decision variables)
+# Layer B: sequential day-ahead MILP (logic unchanged, data source changed)
+# All parameters confirmed against notebooks_milp/milp_common.py (2026-04)
+
+paths:
+  upstream_pv_scenarios: "../new_pipeline/data/output/stage4_pv_scenarios_K5.parquet"
+  upstream_aci_calibrated: "../new_pipeline/data/output/stage1_aci_calibrated.parquet"
+  upstream_truth: "../bridge_outputs_fullyear/full_year_replay_truth_package.parquet"
+  upstream_calendar: "../bridge_outputs_fullyear/caseyear_calendar_manifest.parquet"
+  packages_dir: "bridge/packages"
+  designs_dir: "layer_a/designs"
+  layerb_results_dir: "layer_b/results"
+  replay_results_dir: "replay/results"
+
+horizon:
+  case_year_start: "2024-11-01"
+  case_year_end:   "2025-11-01"
+  n_days: 365
+
+pv_system:
+  pv_cap_kwp: 2687
+  pr: 0.80
+
+battery:
+  # C_BP and C_BE are RAW unit costs (NOT pre-annualized).
+  # CRF is applied exactly once: AEC_inv = CRF * (C_BP * PB + C_BE * EB)
+  # Confirmed from notebooks_milp/milp_common.py (2026-04)
+  C_BP_ntd_per_kw:   11944     # [NTD/kW]
+  C_BE_ntd_per_kwh:   7738     # [NTD/kWh]
+  # CRF = r*(1+r)^N / ((1+r)^N - 1), r=0.05, N=15 => 0.09634
+  discount_rate: 0.05
+  lifetime_yr:   15
+  eta_ch:   0.95
+  eta_dis:  0.95
+  soc_min:  0.10
+  soc_max:  0.90
+  soc_init: 0.50
+  epsilon_term:   0.05    # terminal SOC tolerance band (both SOC and Green SOC)
+
+  degradation_segments:
+    # b_k: normalized breakpoints as fraction of EB (4 segments, 5 points)
+    # Confirmed from notebooks_milp/milp_common.py pwl_deg_b_k
+    b: [0.0, 0.1, 0.3, 0.6, 0.8]
+    # lambda_k: [NTD/kWh], strictly increasing — confirmed from milp_common.py
+    lambda: [0.97, 1.61, 2.58, 3.87]
+
+demand:
+  # kappa: demand amplification factor (confirmed by user: 1.006, NOT milp_common 1.0035)
+  kappa: 1.006
+  over_contract_tier1_ratio: 0.10    # O1 <= 0.10 * CC
+  over_contract_m1: 2.0              # multiplier tier 1 (within 10%)
+  over_contract_m2: 3.0              # multiplier tier 2 (beyond 10%)
+
+tariff:
+  # basic charge by season [NTD/kW/month]
+  # Summer months: May-Oct (month 5-10) = 223.6; Non-summer = 166.9
+  basic_charge_summer:    223.6
+  basic_charge_nonsummer: 166.9
+  # TOU energy rates are computed at runtime via get_tou_price()
+  # (defined inline in milp_v2 common utilities)
+
+re20:
+  re_target_ratio:      0.20
+  c_trec_ntd_per_kwh:   4.63
+
+scenarios:
+  K: 5
+  seed_PP: 42    # seed used for PP/DP Layer A and Prob Package X
+
+# Method A synthetic forecast-miss scenario parameters
+# UPDATED 2026-05-22: switched from raw_19q (leakage) to da_v2 (clean DA baseline)
+method_a:
+  pi_synth: 0.0368
+  pv_synth_ratio: 0.6059   # ratio relative to per-hour min-scenario PV (basis: min)
+  basis: "PIT left-tail coverage deficit (Strategy B, da_v2 recalibration)"
+  tau_low: 0.10
+  calibration_period: "da_v2: 2024-05-01 to 2024-10-31 (pi_synth); test-period K5 approx (pv_ratio)"
+  n_daytime_hours: 2296
+  empirical_left_tail: 0.1368
+  note: >
+    pi_synth = P(realized < q10_da_v2) - 0.10 = 0.1368 - 0.10 = 0.0368.
+    Calibrated on da_v2 cal period (2024-05-01~2024-10-31, n=2296 daytime).
+    95% CI pi_synth: [0.0233, 0.0507].
+    pv_synth_ratio = median(realized_PV / min_scenario_PV) for below-min hours,
+    approximated from test-period K=5 da_v2 scenarios ([IB-WARNING] IB note below).
+    95% CI pv_ratio: [0.5775, 0.6305].
+    IB-CONCERN: pv_synth_ratio uses test-period (2024-11-01~2025-10-31) K=5 scenarios
+    as proxy; strictly pre-test K=5 cal-period scenarios not available.
+    Recommend re-flagging if used in formal paper as cal-period approximation.
+
+method_a_raw19q_frozen:
+  pi_synth: 0.1323
+  pv_synth_ratio: 0.7479
+  note: "raw_19q base (2026-04-13 FROZEN) — superseded 2026-05-22 by da_v2 recalibration"
+
+milp_bounds:
+  # Design variable bounds (confirmed from new_pipeline/config.yaml)
+  CC_lb:        1640.0   # kW
+  CC_ub:        5200.0   # kW
+  PB_lb:         100.0   # kW
+  PB_ub:        2687.0   # kW
+  EB_lb:         300.0   # kWh
+  EB_ub:       15000.0   # kWh
+  EP_ratio_min:    1.0   # h  (EB >= EP_ratio_min * PB)
+  EP_ratio_max:    8.0   # h  (EB <= EP_ratio_max * PB)
+
+solver:
+  mip_gap:        0.005
+  time_limit:     7200
+  threads:        0
+  node_file_gb:   0.5
+
+# Package routing table (read-only reference)
+layer_a_package:
+  DD: "layer_a_det.parquet"
+  DP: "layer_a_det.parquet"
+  PD: "layer_a_prob.parquet"
+  PP: "layer_a_prob.parquet"
+  PI: "layer_a_PI.parquet"
+
+layer_b_package:
+  DD: "layerB_det_package.parquet"
+  DP: "layerB_prob_package_x.parquet"
+  PD: "layerB_det_package.parquet"
+  PP: "layerB_prob_package_x.parquet"
+  PI: "layerB_PI_perfect.parquet"

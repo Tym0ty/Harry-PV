@@ -1,0 +1,5 @@
+﻿Final Case,Case ID,Scheduling Method,Forecast Type,Scenario Type,Load Setting,Execution
+MPC_DET,MPC_DET_PVFOCUS_BASE,Standard hourly rolling MPC,PV point/q50,none,base deterministic given load,"H24 rolling, execute first step"
+MPC_PROB,MPC_PROB_PVFOCUS_LOWPV_SAFE_K5,Standard stochastic hourly rolling MPC,PV probabilistic,PV-focused low-PV-safe TKM K5,base deterministic given load,"H24 rolling, execute first step"
+CCOR_DET,CCOR_V2_DET_SHIELD_m150_PVFOCUS_BASE,CCOR-v2 first-step peak-certified MPC,PV point/q50,none,base deterministic given load,"H24 rolling, execute first step"
+CCOR_PROB,CCOR_V2_PROB_SHIELD_m150_PVFOCUS_LOWPV_SAFE_K5,CCOR-v2 stochastic first-step peak-certified MPC,PV probabilistic,PV-focused low-PV-safe TKM K5,base deterministic given load,"H24 rolling, execute first step"

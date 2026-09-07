@@ -1,0 +1,4 @@
+﻿Model Type,Model,Literature basis,RMSE,MAE,MSE,NRMSE_day,R2,n,Remark
+XGBoost,Main XGBoost H1,BH main method / gradient boosting,95.67152605235236,63.32075974779849,9153.040897185934,28.92025095444396,0.8926274043588825,3846,BH-safe H1 run; chronological split; NWP h1 features used
+CatBoost,Weather-Classified CatBoost (WC-CB),Ahmed et al. (2024)-style WC-CB,96.68374636764048,63.21399406999148,9347.746811682237,29.22623191604481,0.8903433460157615,3846,BH-safe literature-style baseline
+CNN-LSTM,CNN-LSTM hybrid,Zang et al. (2020)-style pseudo-spatial CNN-LSTM,98.0615485001064,68.34778526540106,9616.06729423872,29.639380507621,0.887212732311118,3844,BH-safe deterministic deep-learning baseline; PyTorch backend

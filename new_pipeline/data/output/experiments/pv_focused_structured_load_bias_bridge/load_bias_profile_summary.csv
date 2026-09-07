@@ -1,0 +1,6 @@
+﻿profile,annual_kwh,max_load_kw,min_load_kw,negative_load_count,oc_risk_hours_gt_CC,near_oc_hours_gt_0p95CC
+base,21268438.0,5179.0,0.0,0,1503,1741
+structured_low,20335670.93,4920.05,0.0,0,1246,1495
+structured_high,22201205.07,5437.95,0.0,0,1733,2057
+uniform_low_5,20205016.099999998,4920.05,0.0,0,1255,1503
+uniform_high_5,22331859.900000002,5437.95,0.0,0,1727,2039

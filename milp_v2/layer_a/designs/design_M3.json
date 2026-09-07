@@ -1,0 +1,45 @@
+{
+  "case_id": "BASE",
+  "description": "K=1 sizing with realized PV + 8% Gaussian load perturbation (seed=42)",
+  "input_spec": {
+    "pv_source": "realized",
+    "load_sigma": 0.08,
+    "load_seed": 42,
+    "K": 1,
+    "terminal_soc_constraint": false
+  },
+  "CC_star": 3306.45,
+  "PB_star": 1510.74,
+  "EB_star": 7525.83,
+  "J_star_MNTD": 97.6184,
+  "cost_breakdown_MNTD": {
+    "AEC_inv": 7.3489,
+    "C_basic": 7.747,
+    "C_over": 0.3341,
+    "C_TREC": 5.1963
+  },
+  "solve_metadata": {
+    "solver": "gurobi",
+    "mip_gap_achieved": 0.0,
+    "mip_gap_target": 0.005,
+    "solve_time_sec": 28.9,
+    "build_time_sec": 4.7,
+    "n_vars": 149337,
+    "n_binary": 8760,
+    "n_constraints": 184364,
+    "status": "Optimal",
+    "obj_val_NTD": 97618356.0
+  },
+  "reference_designs": {
+    "DD": {
+      "CC": 3262,
+      "PB": 1103,
+      "EB": 7177
+    },
+    "PI": {
+      "CC": 3210,
+      "PB": 1130,
+      "EB": 7309
+    }
+  }
+}

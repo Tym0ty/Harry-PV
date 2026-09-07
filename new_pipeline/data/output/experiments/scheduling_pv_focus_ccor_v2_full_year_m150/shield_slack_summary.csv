@@ -1,0 +1,3 @@
+﻿case,shield_slack_positive_hours,z_shield_expected_sum_kw,z_shield_max_kw,infeasible_steps,fallback_steps
+CCOR_V2_DET_SHIELD_m150_PVFOCUS_BASE,0,0.0,0.0,0,0
+CCOR_V2_PROB_SHIELD_m150_PVFOCUS_LOWPV_SAFE_K5,7,2656.897006301214,1119.7568510520512,0,0

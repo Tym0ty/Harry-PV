@@ -1,0 +1,2 @@
+﻿component,truth_path,pv_truth_source,uses_old_invalid_ntust_solar_kwh,row_count,pv_max_kw,pv_mean_kw,load_max_kw,load_mean_kw,source_marker_values
+PV-focused scheduling replay/KPI truth,new_pipeline\data\output\experiments\cwa_ghi_pv_truth_rebuild\full_year_replay_truth_package_CWA_GHI_PV.parquet,CWA_GHI_PV_REBUILT,False,8760,2298.8777777777777,328.3743691503279,5179.0,2427.903881278539,CWA_GHI_REALIZED_TO_PV

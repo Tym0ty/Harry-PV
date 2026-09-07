@@ -1,0 +1,2 @@
+﻿model,all_grid_rows,valid_rows,missing_daylight_prediction_rows,nighttime_or_low_sun_rows,daytime_rows
+XGB direct-24 without NWP,17506,17506,0,9032,8474

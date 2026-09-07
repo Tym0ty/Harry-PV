@@ -1,0 +1,3 @@
+﻿case,infeasible_steps,fallback_steps,solver_status_summary,solve_time_total_sec
+MPC_PROB_PVFOCUS_KM_K5,0,0,"{""2"": 8760}",349.78346276283264
+CCOR_V2_PROB_SHIELD_m150_PVFOCUS_KM_K5,0,0,"{""2"": 8760}",359.24439668655396

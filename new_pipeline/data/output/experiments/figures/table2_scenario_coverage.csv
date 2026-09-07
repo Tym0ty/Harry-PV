@@ -1,0 +1,4 @@
+Day type,Date,below-min rate,in-range rate,"N=500 p10 (noon, kW)","N=500 p90 (noon, kW)"
+Sunny Autumn (2025-09-30),2025-09-30,0.0%,87.5%,1414,2017
+Variable Spring (2025-04-08),2025-04-08,8.3%,87.5%,756,1924
+Overcast Winter (2025-01-11),2025-01-11,16.7%,79.2%,107,849

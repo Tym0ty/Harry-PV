@@ -1,0 +1,13 @@
+Method,Metric,Target value from slide,Recomputed / located value,Rounded target,Rounded recomputed,Match?,Notes
+Raw (uncalibrated),PICP80_all_daytime_pct,73.9,73.85798281320669,73.9,73.9,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+Raw (uncalibrated),PICP90_all_daytime_pct,84.4,84.41881501582994,84.4,84.4,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+Raw (uncalibrated),ACE80_all_daytime,-0.061,-0.06142017186793314,-0.061,-0.061,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+Raw (uncalibrated),MPIW80_Wm2,252.4,252.439958795415,252.4,252.4,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+Raw (uncalibrated),CRPS_all_daytime,59.91,59.91467130528508,59.91,59.91,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+Raw (uncalibrated),PICP80_peak_10_15_pct,73.2,73.15068493150685,73.2,73.2,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+AgACI (calibrated),PICP80_all_daytime_pct,80.3,80.32564450474898,80.3,80.3,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+AgACI (calibrated),PICP90_all_daytime_pct,90.1,90.14020805065581,90.1,90.1,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+AgACI (calibrated),ACE80_all_daytime,0.003,0.0032564450474897866,0.003,0.003,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+AgACI (calibrated),MPIW80_Wm2,275.1,275.0541909813803,275.1,275.1,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+AgACI (calibrated),CRPS_all_daytime,59.87,59.87436053402107,59.87,59.87,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.
+AgACI (calibrated),PICP80_peak_10_15_pct,80.3,80.31963470319636,80.3,80.3,YES,Stage-5 recomputation from raw_19q_quantiles + stage1_aci_calibrated.

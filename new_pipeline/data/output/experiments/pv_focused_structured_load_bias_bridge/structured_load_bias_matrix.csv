@@ -1,0 +1,11 @@
+﻿profile,season,night,morning,daytime,evening_peak,late_night
+base,summer,0.0,0.0,0.0,0.0,0.0
+uniform_low_5,summer,-0.05,-0.05,-0.05,-0.05,-0.05
+uniform_high_5,summer,0.05,0.05,0.05,0.05,0.05
+structured_low,summer,-0.03,-0.05,-0.05,-0.07,-0.03
+structured_high,summer,0.03,0.05,0.05,0.07,0.03
+base,nonsummer,0.0,0.0,0.0,0.0,0.0
+uniform_low_5,nonsummer,-0.05,-0.05,-0.05,-0.05,-0.05
+uniform_high_5,nonsummer,0.05,0.05,0.05,0.05,0.05
+structured_low,nonsummer,-0.02,-0.04,-0.04,-0.05,-0.02
+structured_high,nonsummer,0.02,0.04,0.04,0.05,0.02

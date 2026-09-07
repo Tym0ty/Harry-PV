@@ -1,0 +1,18 @@
+﻿Equation / Block,Mathematical Form,Code Evidence,Notes
+Horizon and scenarios,"h in {0,...,H-1}; omega in Omega; pi_omega scenario weights",milp_v2/layer_b/milp_cvar.py:27-56; scenario dictionaries passed by scheduling scripts,Final H24 rolling MPC executes first step only.
+Power balance,"P_gl_{omega,h} + P_pvl_{omega,h} + P_dis_h = L_{omega,h}",milp_v2/layer_b/milp_cvar.py:174,Load balance is scenario-specific; discharge is common across scenarios.
+PV allocation,"P_pvl_{omega,h}+P_pvc_{omega,h}+P_pvcu_{omega,h}=PV_{omega,h}",milp_v2/layer_b/milp_cvar.py:178-182,"PV can serve load, charge BESS, or be curtailed."
+Grid import,"G_{omega,h}=kappa*(P_gl_{omega,h}+P_gc_{omega,h})",milp_v2/layer_b/milp_cvar.py:190,Used for DCT candidate peak; replay also computes realized grid import.
+Charge/discharge exclusivity,P_ch_h <= u_h PB; P_dis_h <= (1-u_h) PB,milp_v2/layer_b/milp_cvar.py:140-141,Binary u prevents simultaneous charge and discharge.
+SOC transition,E_h = E_{h-1} + eta_ch P_ch_h - P_dis_h/eta_dis,milp_v2/layer_b/milp_cvar.py:145-147,Delta t is one hour in the final experiments.
+SOC bounds,SOC_min <= E_h <= SOC_max,milp_v2/layer_b/milp_cvar.py:113,Bounds are applied through variable lower/upper bounds.
+Terminal SOC,Only final-day/year-end terminal SOC bound if is_final_day,milp_v2/layer_b/milp_cvar.py:151-156,CCOR-v2 final m150 does not rely on terminal reserve.
+DCT candidate peak,"D_cand_omega >= D_init; D_cand_omega >= G_{omega,h} for all h","milp_v2/layer_b/milp_cvar.py:127,190",D_init is the month-to-date realized peak state.
+Over-contract segmentation,Over_omega >= D_cand_omega-CC; Over_omega=O1_omega+O2_omega; 0<=O1<=0.1CC,"milp_v2/layer_b/milp_cvar.py:127-130,193-195",Segmented Taiwan DCT proxy.
+Expected incremental OC/DCT objective,sum_omega pi_omega c_basic(m1 O1_omega+m2 O2_omega) - PeakCost_prev,milp_v2/layer_b/milp_cvar.py:230-235,Constant previous peak cost is subtracted in optimization objective.
+Energy cost objective,"sum_omega pi_omega sum_h tou_h * (P_gl_{omega,h}+P_gc_{omega,h})",milp_v2/layer_b/milp_cvar.py:222-245,TOU price is included in MILP objective.
+Degradation objective,"sum_h sum_k deg_slope_k e_seg_{h,k}","milp_v2/layer_b/milp_cvar.py:149-161,222-245",Segmented discharge degradation is optimized.
+Green SOC constraints,E_g transition; E_g<=E; P_chg<=P_pvc; P_disg<=P_dis,milp_v2/layer_b/milp_cvar.py:197-209,Green SOC accounting constraints are present; TREC/RE20 final amount is settlement/accounting.
+CVaR,eta + (1/(1-alpha)) sum pi xi; xi>=C_oc-eta,"milp_v2/layer_b/milp_cvar.py:132-133,211-245","Final cases pass lam=0.0, so CVaR is disabled."
+CCOR-v2 shield,"z_shield_omega >= G_{omega,0} - (max(CC,D_init)-150); objective += sum pi rho_shield z_shield_omega","run_scheduling_pv_focus_ccor_v2_smoke.py:189,202,236,263,286; full_year_m150.py:52",Soft first-step shield only; no terminal reserve in final v2.
+Rolling replay/update,Execute h=0 action; update SOC and D_mtd using realized CWA-GHI PV truth and load profile,run_scheduling_pv_focus_da_mpc.py:149-190; pv_focus_bridge_utils.py:62-139,Truth enters replay/KPI only.

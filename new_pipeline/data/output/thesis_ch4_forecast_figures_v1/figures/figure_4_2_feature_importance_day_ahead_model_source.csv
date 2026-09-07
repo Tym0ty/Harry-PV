@@ -1,0 +1,13 @@
+﻿feature,importance,category
+solar_zenith_angle_target,0.2131374,Solar geometry/calendar
+ghi_prev_day_same_hour,0.15607472,Solar geometry/calendar
+nwp_dswrf_target,0.08934633,NWP irradiance/cloud
+nwp_csi_nwp_target,0.06636576,NWP irradiance/cloud
+historical_ghi_roll_mean_7d_same_hour,0.06358192,Solar geometry/calendar
+clear_sky_ghi_target,0.060415555,Solar geometry/calendar
+nwp_forecast_hour_target,0.05531045,NWP irradiance/cloud
+cos_hour,0.03722852,Solar geometry/calendar
+nwp_lcc_target,0.03461524,NWP irradiance/cloud
+sin_hour,0.021285828,Solar geometry/calendar
+humidity_prev_day_same_hour,0.02009225,Solar geometry/calendar
+nwp_r2_target,0.012141917,NWP irradiance/cloud

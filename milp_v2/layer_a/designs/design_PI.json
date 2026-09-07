@@ -1,0 +1,25 @@
+{
+  "case_id": "PI",
+  "CC_star": 3210.02,
+  "PB_star": 1129.68,
+  "EB_star": 7308.66,
+  "J_star_MNTD": 97.2314,
+  "cost_breakdown_MNTD": {
+    "AEC_inv": 6.7485,
+    "C_basic": 7.5211,
+    "C_over": 0.3587,
+    "C_TREC": 5.2027
+  },
+  "solve_metadata": {
+    "solver": "gurobi",
+    "mip_gap_achieved": 0.0,
+    "mip_gap_target": 0.005,
+    "solve_time_sec": 27.5,
+    "build_time_sec": 4.5,
+    "n_vars": 149337,
+    "n_binary": 8760,
+    "n_constraints": 184366,
+    "status": "Optimal",
+    "obj_val_NTD": 97231412.0
+  }
+}

@@ -1,0 +1,42 @@
+﻿# Python and local environments
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+venv/
+.venv/
+
+# OS and IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
+
+# Local secrets
+.env
+*.env
+
+# Local generated package output
+final_package/
+release_package/
+github_package/
+*.zip
+*.7z
+
+# Regenerated bulky outputs that are not part of this curated final package
+new_pipeline/data/output/experiments/**/raw/
+new_pipeline/data/output/experiments/**/*raw*_M500*.parquet
+new_pipeline/data/output/experiments/**/*hourly_dispatch*.parquet
+new_pipeline/data/output/experiments/**/*_hourly.parquet
+new_pipeline/data/output/experiments/**/*_daily.parquet
+*.log
+
+# Legacy handover/archive folders
+BH_NEXT_CHAT_HANDOVER_20260606/
+BH_THESIS_HANDOVER_2026_05_FINAL/
+forecasting_handover_for_thesis_text/
+THESIS_MAINLINE_ARCHIVE_2026_06/

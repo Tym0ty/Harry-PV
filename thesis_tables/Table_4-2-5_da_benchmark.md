@@ -1,0 +1,12 @@
+## Day-ahead GHI forecast benchmark (test set 2024-11-01 to 2025-10-31, n=4{,}399 daytime slots).
+
+| Model                              |   Features | Optuna Budget   |   Test RMSE (W/m²) | Val. RMSE / MAE (W/m²)   | R²     | \(\Delta\)RMSE vs REF   | Source                      |
+|:-----------------------------------|-----------:|:----------------|-------------------:|:-------------------------|:-------|:------------------------|:----------------------------|
+| da\_v2 XGBoost \textsuperscript{†} |         55 | Manual          |             140.88 | 94.23                    | 0.7612 | REF                     | da\_baseline\_summary.json  |
+| DA-Exp1 XGBoost (Optuna)           |         55 | Optuna 25t      |             140.18 | 136.65*                  | 0.7636 | -0.70                   | da\_exp1\_best\_params.json |
+| DA-Exp1 LightGBM (Optuna)          |         55 | Optuna 25t      |             140.44 | 137.03*                  | 0.7627 | -0.44                   | da\_exp1\_best\_params.json |
+| DA-Exp2 CatBoost ExpA (raw GHI)    |         55 | Optuna 40t      |             140.63 | —                        | —      | +0.15†                  | da\_exp2\_best\_params.json |
+| DA-Exp1 CatBoost (Optuna)          |         55 | Optuna 25t      |             141.01 | 137.69*                  | 0.7607 | +0.13                   | da\_exp1\_best\_params.json |
+| DA-Exp2 CatBoost ExpB (CSI norm)   |         55 | Optuna 40t      |             144.01 | —                        | —      | +3.13†                  | da\_exp2\_best\_params.json |
+
+*Note: \(\dagger\) Production model (da\_v2). All models use 55 DA-valid features (lag\,$\geq$\,24 h guard). * Val.\,RMSE shown in Val.\/MAE column for Exp1 models (MAE not saved in params JSON). \(\dagger\dagger\) Approx. \(\Delta\) vs da\_v2 test RMSE. raw\_19q (RMSE=124.92) excluded: contains 8 target-time weather observations (DA context leakage).*

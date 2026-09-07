@@ -1,0 +1,4 @@
+regime_id,label,n_test_rows,pct_of_test,mean_csi_obs,std_csi_obs,mean_ghi_wm2,high_ramp_ratio,cloudy_lt03_ratio
+0,Clear (CSI≥0.7),28212,27.7,0.69,0.35,396.1,0.314,0.005
+1,Partly Cloudy,66906,65.8,0.496,0.36,277.1,0.004,0.915
+2,Overcast (CSI<0.3),6570,6.5,0.637,0.359,363.9,0.159,0.989

@@ -1,0 +1,5 @@
+Case,Calibration Method,PICP@80%,PICP@90%,MPIW@80% (W/m²),MPIW@90% (W/m²),CRPS (W/m²)
+ID raw,—,0.742,—,259.7,—,61.46
+ID + AgACI,RC-Conformal(4),0.807,0.905,283.0,358.0,61.46
+DA raw,—,0.700,—,291.6,—,70.15
+DA + AgACI,RC-Conformal(4),0.803,0.9,323.2,412.0,70.15

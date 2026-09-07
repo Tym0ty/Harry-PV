@@ -1,0 +1,2 @@
+﻿case,scenario_path,k_min,k_max,weight_sum_min,weight_sum_max,effective_scenarios_min,effective_scenarios_mean,effective_scenarios_max,has_realized_or_truth_columns,truth_like_columns
+CCOR_V2_PROB_SHIELD_m150_PVFOCUS_LOWPV_SAFE_K5,new_pipeline\data\output\experiments\pv_focused_structured_load_bias_bridge\id_h24_pvfocus_base_tkm_lowpv_safe_K5_scenarios.parquet,5,5,0.9999999999999999,1.0000000000000002,1.0,2.9892910736015033,4.921841162342008,False,

@@ -1,0 +1,3 @@
+﻿comparison,ordinary_km_case,tailaware_tkm_case,delta_full_total_m_ntd_tkm_minus_km,delta_TOU_m_ntd_tkm_minus_km,delta_OC_DCT_m_ntd_tkm_minus_km,delta_Deg_m_ntd_tkm_minus_km,delta_monthly_peak_kw_tkm_minus_km,delta_oc_hours_tkm_minus_km,tailaware_improves_total,tailaware_reduces_OC_DCT,tailaware_increases_TOU
+MPC tail-aware TKM vs ordinary KM,MPC_PROB_PVFOCUS_KM_K5,MPC_PROB_PVFOCUS_LOWPV_SAFE_K5,-0.7594435017528269,0.08489082176596696,-0.8217943212560286,-0.031240002262751698,-148.07934897447103,-17,True,True,True
+CCOR tail-aware TKM vs ordinary KM,CCOR_V2_PROB_SHIELD_m150_PVFOCUS_KM_K5,CCOR_V2_PROB_SHIELD_m150_PVFOCUS_LOWPV_SAFE_K5,-0.7006053439720858,0.09682943069003613,-0.7948633607722897,-0.009771413889842817,-114.70098743400558,38,True,True,True

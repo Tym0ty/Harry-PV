@@ -1,0 +1,13 @@
+﻿case_order,case_label,case_full,controller,information,annual_total_cost_mntd,over_contract_surcharge_mntd
+1,"MPC
+DET",Standard MPC - Deterministic,Standard MPC,Deterministic,107.018,7.9402
+2,"MPC
+Dist.",Standard MPC - Distribution-oriented,Standard MPC,Distribution-oriented,106.8399,7.7292
+3,"MPC
+Risk-pres.",Standard MPC - Contract-risk-preserving,Standard MPC,Contract-risk-preserving,105.3405,6.0977
+4,"CCOR
+DET",CCOR-MPC - Deterministic,CCOR-MPC,Deterministic,106.213,7.0654
+5,"CCOR
+Dist.",CCOR-MPC - Distribution-oriented,CCOR-MPC,Distribution-oriented,105.5657,6.3345
+6,"CCOR
+Risk-pres.",CCOR-MPC - Contract-risk-preserving,CCOR-MPC,Contract-risk-preserving,103.687,4.156

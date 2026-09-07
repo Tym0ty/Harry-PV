@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "Harry-PV Final Package: PV-Focused Rolling MPC and CCOR-MPC"
+message: "If you use this project, please cite it using the metadata from this file."
+type: software
+authors:
+  - family-names: "PV Contributors"
+    given-names: "Harry"
+repository-code: "https://github.com/Tym0ty/Harry-PV"
+version: "2026.09-final"
+date-released: "2026-09-07"
+abstract: "Curated final thesis package for PV-focused probabilistic forecasting, low-PV-safe scenario reduction, rolling MPC, and CCOR-MPC scheduling of a campus PV-BESS system."
+keywords:
+  - photovoltaic forecasting
+  - probabilistic forecasting
+  - model predictive control
+  - battery energy storage
+  - mixed-integer linear programming
+  - scenario reduction
+license: MIT

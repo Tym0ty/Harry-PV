@@ -6,6 +6,7 @@ workspace.
 ## Root Files
 
 - `README.md`: final GitHub-facing overview.
+- `index.html`: static dashboard for final cases, results, figures, and file links.
 - `FINAL_FILE_SELECTION.md`: inclusion and exclusion judgement used for packaging.
 - `PACKAGE_README.md`: package generation notes.
 - `PACKAGE_MANIFEST.csv`: inventory of packaged files.

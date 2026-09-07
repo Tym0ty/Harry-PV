@@ -71,12 +71,16 @@ and monthly peaks.
 
 ## Where to Start
 
+- `index.html`: static dashboard for final cases, costs, figures, and key files.
 - `FINAL_FILE_SELECTION.md`: explains what was considered final, reference, or excluded.
 - `PACKAGE_README.md`: records how this curated package was generated.
 - `PACKAGE_MANIFEST.csv`: file-level package inventory.
 - `REPRODUCIBILITY.md`: practical reproduction levels and required inputs.
 - `PROJECT_STRUCTURE.md`: directory map for this curated package.
 - `new_pipeline/data/output/experiments/final_thesis_method_result_report_pvfocus/`: final consolidated report and summary tables.
+
+To publish the dashboard with GitHub Pages, use the `final-package-20260907`
+branch and serve from the repository root. The static page has no build step.
 
 ## Installation
 

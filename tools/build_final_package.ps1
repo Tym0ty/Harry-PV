@@ -147,6 +147,8 @@ $Included.Add([pscustomobject]@{
 })
 
 Copy-TemplateAs ".gitattributes" ".gitattributes" "package-gitattributes"
+Copy-TemplateAs ".nojekyll" ".nojekyll" "github-pages"
+Copy-TemplateAs "index.html" "index.html" "project-dashboard"
 Copy-TemplateAs "README.md" "README.md" "github-readme"
 Copy-TemplateAs "LICENSE" "LICENSE" "license"
 Copy-TemplateAs "CITATION.cff" "CITATION.cff" "citation"
@@ -155,6 +157,8 @@ Copy-TemplateAs "PROJECT_STRUCTURE.md" "PROJECT_STRUCTURE.md" "github-doc"
 Copy-FileRel "tools/build_final_package.ps1" "packaging-tool"
 Copy-DirFiltered "tools/package_templates" @(".md", ".cff") "packaging-template"
 Copy-FileRel "tools/package_templates/.gitattributes" "packaging-template"
+Copy-FileRel "tools/package_templates/.nojekyll" "packaging-template"
+Copy-FileRel "tools/package_templates/index.html" "packaging-template"
 Copy-FileRel "tools/package_templates/LICENSE" "packaging-template"
 
 $FinalScripts = @(
